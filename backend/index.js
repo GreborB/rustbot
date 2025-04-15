@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
+//const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth');
 const commandsRoutes = require('./routes/commands');
 const rustPlusRoutes = require('./routes/rustplus');
