@@ -1,0 +1,23 @@
+{
+    "name": "rustbot",
+    "version": "1.0.0",
+    "description": "A Rust+ bot for in-game commands",
+    "main": "index.js",
+    "scripts": {
+      "start": "node backend/server.js",
+      "dev": "concurrently \"npm run server\" \"npm run client\"",
+      "server": "nodemon backend/server.js",
+      "client": "npm start --prefix frontend"
+    },
+    "dependencies": {
+      "dotenv": "^10.0.0",
+      "express": "^4.17.1",
+      "concurrently": "^6.0.0"
+    },
+    "devDependencies": {
+      "nodemon": "^2.0.0"
+    },
+    "author": "Your Name",
+    "license": "MIT"
+  }
+  
