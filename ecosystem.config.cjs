@@ -14,8 +14,8 @@ module.exports = {
     {
       name: 'rustbot-frontend',
       cwd: './frontend',
-      script: 'npx',
-      args: 'serve -s dist -l 3000',
+      script: './node_modules/.bin/serve',
+      args: '-s dist -l 3000',
       env: {
         NODE_ENV: 'production',
         PORT: 3000
