@@ -16,12 +16,12 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://129.151.212.105:3001',
+        target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
       },
       '/socket.io': {
-        target: 'http://129.151.212.105:3001',
+        target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         ws: true,
