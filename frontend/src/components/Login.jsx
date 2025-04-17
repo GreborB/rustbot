@@ -36,13 +36,11 @@ const Login = () => {
         newSocket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             switch (data.type) {
-                case 'connectionStatus':
-                    setStatus(data.status === 'waiting_for_pairing' 
-                        ? 'Ready to pair! Open Rust+ app in game and click "Pair".' 
-                        : data.status);
+                case 'pairingRequest':
+                    setStatus('New pairing request received! Click "Accept" to pair with the server.');
                     break;
                 case 'rustConnected':
-                    setStatus('Successfully connected to Rust server!');
+                    setStatus('Successfully paired with Rust server!');
                     navigate('/dashboard');
                     break;
                 case 'pairingError':
@@ -52,7 +50,7 @@ const Login = () => {
         };
 
         newSocket.onopen = () => {
-            newSocket.send(JSON.stringify({ type: 'startPairing' }));
+            setStatus('Waiting for server pairing request...');
         };
 
         return () => {
@@ -62,6 +60,14 @@ const Login = () => {
 
     const handleSteamLogin = () => {
         window.location.href = '/api/auth/steam';
+    };
+
+    const handleAcceptPairing = () => {
+        if (socket) {
+            socket.send(JSON.stringify({ type: 'acceptPairing' }));
+            setStatus('Accepting pairing request...');
+            setLoading(true);
+        }
     };
 
     return (
@@ -107,12 +113,21 @@ const Login = () => {
                             <ol>
                                 <li>Launch Rust and log in to your Steam account</li>
                                 <li>Join the server you want to connect the bot to</li>
-                                <li>Open the Rust+ app menu in game (F1)</li>
-                                <li>Click the "Pair" button in the Rust+ app</li>
-                                <li>The bot will automatically accept the pairing request</li>
+                                <li>In game, press ESC and click "Pair server with Rust+"</li>
+                                <li>Wait for the pairing request to appear here</li>
+                                <li>Click "Accept" to complete the pairing</li>
                             </ol>
                             <p className="note">Note: You must be logged into Steam in Rust to pair with the bot.</p>
                         </div>
+
+                        {status.includes('pairing request') && (
+                            <button 
+                                className="accept-button"
+                                onClick={handleAcceptPairing}
+                            >
+                                Accept Pairing
+                            </button>
+                        )}
                     </>
                 )}
             </div>

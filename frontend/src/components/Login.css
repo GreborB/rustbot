@@ -44,6 +44,39 @@
     border: 2px solid #ff6b00;
 }
 
+.steam-login-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin: 1rem 0;
+}
+
+.steam-login-button:hover {
+    transform: scale(1.05);
+}
+
+.steam-login-button img {
+    width: 180px;
+    height: auto;
+}
+
+.accept-button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 1rem;
+}
+
+.accept-button:hover {
+    background: #45a049;
+}
+
 .loading-spinner {
     margin: 2rem 0;
 }
@@ -165,21 +198,4 @@
 .connect-button:disabled {
     background-color: #666;
     cursor: not-allowed;
-}
-
-.steam-login-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-    margin: 1rem 0;
-}
-
-.steam-login-button:hover {
-    transform: scale(1.05);
-}
-
-.steam-login-button img {
-    width: 180px;
-    height: auto;
 } 
