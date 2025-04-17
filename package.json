@@ -22,6 +22,12 @@
     },
     "devDependencies": {
       "concurrently": "^8.2.2"
+    },
+    "overrides": {
+      "uuid": "^9.0.1",
+      "request": "^2.88.2",
+      "request-promise": "^4.2.6",
+      "har-validator": "^5.1.5"
     }
 }
   
