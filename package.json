@@ -1,23 +1,23 @@
 {
-    "name": "kinabot",
+    "name": "rustbot",
     "version": "1.0.0",
     "private": true,
-    "description": "Rust+ bot with web interface",
+    "description": "A lightweight Rust server management bot",
     "scripts": {
-      "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-      "start:backend": "cd backend && npm start",
-      "start:frontend": "cd frontend && npm start",
-      "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-      "build:frontend": "cd frontend && npm run build",
-      "build:backend": "cd backend && npm run build"
+      "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+      "build": "cd frontend && npm run build",
+      "start": "cd backend && npm start",
+      "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+      "start:prod": "cd backend && npm start"
     },
-    "devDependencies": {
-      "concurrently": "^8.2.2"
-    },
+    "keywords": ["rust", "bot", "management"],
     "author": "Your Name",
     "license": "MIT",
     "engines": {
       "node": ">=16.0.0"
+    },
+    "devDependencies": {
+      "concurrently": "^8.2.2"
     }
 }
   
