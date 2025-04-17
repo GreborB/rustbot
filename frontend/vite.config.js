@@ -95,6 +95,7 @@ export default defineConfig(({ command, mode }) => {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
       __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
       __DEV__: mode === 'development',
-    }
+    },
+    base: '/', // Set base path for production
   };
 }); 

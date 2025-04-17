@@ -1,26 +1,17 @@
 module.exports = {
   apps: [
     {
-      name: 'rustbot-backend',
-      cwd: './backend',
-      script: 'src/index.js',
+      name: 'rustbot',
+      script: 'backend/src/index.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3001,
+        CORS_ORIGIN: 'http://localhost:3001'
       },
-      max_memory_restart: '150M',
-      node_args: '--max-old-space-size=128'
-    },
-    {
-      name: 'rustbot-frontend',
-      cwd: './frontend',
-      script: 'server.js',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3000
-      },
-      max_memory_restart: '150M',
-      node_args: '--max-old-space-size=128'
+      watch: false,
+      max_memory_restart: '1G',
+      instances: 1,
+      exec_mode: 'fork'
     }
   ]
 }; 
