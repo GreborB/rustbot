@@ -46,7 +46,7 @@ export default defineConfig({
     },
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'src/index.jsx'),
+        main: path.resolve(__dirname, 'index.html'),
       },
       output: {
         manualChunks: (id) => {
@@ -68,7 +68,7 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@emotion/react'],
     exclude: ['@vitejs/plugin-react']
   },
-  base: '/',
+  base: './',
   preview: {
     port: 3000,
     strictPort: true,
