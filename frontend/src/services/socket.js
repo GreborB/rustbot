@@ -10,7 +10,7 @@ class SocketService {
 
     connect() {
         try {
-            this.socket = io('http://localhost:3001', {
+            this.socket = io('http://129.151.212.105:3001', {
                 transports: ['websocket'],
                 reconnection: true,
                 reconnectionAttempts: 5,
