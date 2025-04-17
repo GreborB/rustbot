@@ -1,34 +1,43 @@
 const express = require('express');
-const User = require('../models/User');
-const bcrypt = require('bcrypt');
+const passport = require('../config/auth');
 const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
-router.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    const user = User.findByUsername(username);
+// Steam authentication routes
+router.get('/steam', passport.authenticate('steam'));
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-        return res.status(400).send('Invalid credentials');
+router.get('/steam/return', 
+    passport.authenticate('steam', { failureRedirect: '/login' }),
+    (req, res) => {
+        // Generate JWT token
+        const token = jwt.sign(
+            { 
+                id: req.user.steamId,
+                username: req.user.username,
+                isAdmin: req.user.isAdmin
+            },
+            process.env.JWT_SECRET || 'secret_key',
+            { expiresIn: '24h' }
+        );
+
+        // Redirect to frontend with token
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?token=${token}`);
     }
+);
 
-    const token = jwt.sign({ username: user.username }, 'secret_key');
-    res.send({ token });
+// Get current user
+router.get('/me', (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    res.json(req.user);
 });
 
-router.post('/register', (req, res) => {
-    const { username, password } = req.body;
-    
-    if (User.findByUsername(username)) {
-        return res.status(400).send('Username already exists');
-    }
-
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    const user = User.create(username, hashedPassword);
-    
-    const token = jwt.sign({ username: user.username }, 'secret_key');
-    res.send({ token });
+// Logout
+router.get('/logout', (req, res) => {
+    req.logout();
+    res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000');
 });
 
 module.exports = router;

@@ -51,15 +51,15 @@ export default defineConfig({
       },
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'react-vendor': ['react', 'react-dom'],
           'socket-vendor': ['socket.io-client']
         }
       }
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@mui/icons-material', 'socket.io-client']
+    include: ['react', 'react-dom', 'socket.io-client'],
+    exclude: ['@vitejs/plugin-react']
   },
   base: '/'
 }); 

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import {
@@ -26,15 +26,22 @@ import {
   ShoppingCart as ShoppingCartIcon
 } from '@mui/icons-material';
 import { socketService } from './services/socket';
-
-import Dashboard from './components/Dashboard.jsx';
-import Storage from './components/Storage.jsx';
-import SmartSwitches from './components/SmartSwitches.jsx';
-import Players from './components/Players.jsx';
-import Timers from './components/Timers.jsx';
-import Vending from './components/Vending.jsx';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import './style.css';
 
 const drawerWidth = 240;
+
+const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  return user ? children : <Navigate to="/login" />;
+};
 
 function App() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -99,85 +106,116 @@ function App() {
   );
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <Box sx={{ display: 'flex' }}>
-          <AppBar
-            position="fixed"
-            sx={{
-              width: { sm: `calc(100% - ${drawerWidth}px)` },
-              ml: { sm: `${drawerWidth}px` },
-            }}
-          >
-            <Toolbar>
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2, display: { sm: 'none' } }}
+    <AuthProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Box sx={{ display: 'flex' }}>
+            <AppBar
+              position="fixed"
+              sx={{
+                width: { sm: `calc(100% - ${drawerWidth}px)` },
+                ml: { sm: `${drawerWidth}px` },
+              }}
+            >
+              <Toolbar>
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 2, display: { sm: 'none' } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+                <Typography variant="h6" noWrap component="div">
+                  Kinabot
+                </Typography>
+              </Toolbar>
+            </AppBar>
+
+            <Box
+              component="nav"
+              sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+            >
+              <Drawer
+                variant="temporary"
+                open={mobileOpen}
+                onClose={handleDrawerToggle}
+                ModalProps={{
+                  keepMounted: true,
+                }}
+                sx={{
+                  display: { xs: 'block', sm: 'none' },
+                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                }}
               >
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="h6" noWrap component="div">
-                Kinabot
-              </Typography>
-            </Toolbar>
-          </AppBar>
+                {drawer}
+              </Drawer>
+              <Drawer
+                variant="permanent"
+                sx={{
+                  display: { xs: 'none', sm: 'block' },
+                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                }}
+                open
+              >
+                {drawer}
+              </Drawer>
+            </Box>
 
-          <Box
-            component="nav"
-            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-          >
-            <Drawer
-              variant="temporary"
-              open={mobileOpen}
-              onClose={handleDrawerToggle}
-              ModalProps={{
-                keepMounted: true,
-              }}
+            <Box
+              component="main"
               sx={{
-                display: { xs: 'block', sm: 'none' },
-                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                flexGrow: 1,
+                p: 3,
+                width: { sm: `calc(100% - ${drawerWidth}px)` },
               }}
             >
-              {drawer}
-            </Drawer>
-            <Drawer
-              variant="permanent"
-              sx={{
-                display: { xs: 'none', sm: 'block' },
-                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-              }}
-              open
-            >
-              {drawer}
-            </Drawer>
+              <Toolbar />
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard socket={socketService} />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/storage" element={<Storage socket={socketService} />} />
+                <Route path="/switches" element={<SmartSwitches socket={socketService} />} />
+                <Route path="/players" element={<Players socket={socketService} />} />
+                <Route path="/timers" element={<Timers socket={socketService} />} />
+                <Route path="/vending" element={<Vending socket={socketService} />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+              </Routes>
+            </Box>
           </Box>
-
-          <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              p: 3,
-              width: { sm: `calc(100% - ${drawerWidth}px)` },
-            }}
-          >
-            <Toolbar />
-            <Routes>
-              <Route path="/" element={<Dashboard socket={socketService} />} />
-              <Route path="/storage" element={<Storage socket={socketService} />} />
-              <Route path="/switches" element={<SmartSwitches socket={socketService} />} />
-              <Route path="/players" element={<Players socket={socketService} />} />
-              <Route path="/timers" element={<Timers socket={socketService} />} />
-              <Route path="/vending" element={<Vending socket={socketService} />} />
-            </Routes>
-          </Box>
-        </Box>
-      </Router>
-    </ThemeProvider>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
+
+const AuthCallback = () => {
+  const { handleCallback } = useAuth();
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  React.useEffect(() => {
+    if (token) {
+      handleCallback(token)
+        .then(() => {
+          window.location.href = '/';
+        })
+        .catch(() => {
+          window.location.href = '/login';
+        });
+    }
+  }, [token, handleCallback]);
+
+  return <div>Authenticating...</div>;
+};
 
 export default App;

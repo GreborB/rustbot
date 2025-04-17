@@ -1,20 +1,46 @@
-class User {
-    constructor(username, password) {
-        this.username = username;
-        this.password = password;
-    }
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-    static users = new Map();
-
-    static create(username, password) {
-        const user = new User(username, password);
-        this.users.set(username, user);
-        return user;
+const userSchema = new Schema({
+    steamId: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    username: {
+        type: String,
+        required: true
+    },
+    avatar: {
+        type: String
+    },
+    profileUrl: {
+        type: String
+    },
+    isAdmin: {
+        type: Boolean,
+        default: false
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    lastLogin: {
+        type: Date
     }
+});
 
-    static findByUsername(username) {
-        return this.users.get(username);
-    }
-}
+// Add instance methods
+userSchema.methods.toJSON = function() {
+    const user = this.toObject();
+    return user;
+};
+
+// Add static methods
+userSchema.statics.findBySteamId = function(steamId) {
+    return this.findOne({ steamId });
+};
+
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;
