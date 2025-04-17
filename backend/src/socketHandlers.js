@@ -1,11 +1,11 @@
-const { RustPlus } = require('@liamcottle/rustplus.js');
-const config = require('./config');
+import { RustPlus } from '@liamcottle/rustplus.js';
+import config from './config.js';
 
 let rustClient = null;
 let connectionStatus = 'disconnected';
 let connectionError = null;
 
-function setupSocketHandlers(io) {
+export function setupSocketHandlers(io) {
     io.on('connection', (socket) => {
         console.log('Client connected');
 
@@ -171,6 +171,4 @@ function setupSocketHandlers(io) {
             }
         });
     });
-}
-
-module.exports = { setupSocketHandlers }; 
+} 
