@@ -23,7 +23,8 @@
       "test": "echo \"Error: no test specified\" && exit 1",
       "pm2:start": "pm2 start ecosystem.config.js",
       "pm2:stop": "pm2 stop all && pm2 delete all",
-      "clean": "rimraf frontend/dist frontend/node_modules backend/node_modules node_modules"
+      "clean": "rimraf frontend/dist frontend/node_modules backend/node_modules node_modules",
+      "update": "git pull origin main && cd frontend && npm run build && cd .. && pm2 restart all"
     },
     "keywords": [],
     "author": "",
