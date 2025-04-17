@@ -13,7 +13,10 @@ import {
   Chip,
   LinearProgress,
   Alert,
-  TextField
+  TextField,
+  CircularProgress,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -23,9 +26,10 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  CircularProgress
+  Error as ErrorIcon
 } from '@mui/icons-material';
+import { socketService } from '../services/socket';
+import './Dashboard.css';
 
 function Dashboard({ socket }) {
   const navigate = useNavigate();
