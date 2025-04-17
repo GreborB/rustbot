@@ -27,16 +27,30 @@ export default defineConfig({
         ws: true,
       },
     },
+    hmr: {
+      overlay: false
+    }
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     emptyOutDir: true,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'src/index.jsx'),
       },
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'mui-vendor': ['@mui/material', '@mui/icons-material'],
+          'router-vendor': ['react-router-dom'],
+          'socket-vendor': ['socket.io-client']
+        }
+      }
     },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material', 'react-router-dom', 'socket.io-client']
   },
   base: '/'
 }); 

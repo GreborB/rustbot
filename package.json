@@ -4,10 +4,10 @@
     "private": true,
     "description": "A lightweight Rust server management bot",
     "scripts": {
-      "install": "cd backend && npm install && cd ../frontend && npm install",
+      "install": "cd backend && npm install --no-audit --no-fund --no-optional && cd ../frontend && npm install --no-audit --no-fund --no-optional",
       "build": "cd frontend && npm run build",
       "start": "cd backend && npm start",
-      "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+      "dev": "concurrently \"cd backend && NODE_OPTIONS='--max-old-space-size=512' npm run dev\" \"cd frontend && NODE_OPTIONS='--max-old-space-size=512' npm run dev\"",
       "start:prod": "cd backend && npm start"
     },
     "keywords": ["rust", "bot", "management"],
