@@ -1,0 +1,72 @@
+.dashboard-container {
+    padding: 20px;
+}
+
+.status-card {
+    margin-bottom: 20px;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.feature-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+}
+
+.feature-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: #1976d2;
+}
+
+.feature-title {
+    margin-bottom: 10px;
+}
+
+.feature-description {
+    color: #666;
+    flex-grow: 1;
+}
+
+.server-status {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.status-indicator {
+    margin-right: 10px;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.status-text {
+    margin-left: 10px;
+}
+
+.error-message {
+    color: #d32f2f;
+    margin-top: 10px;
+}
+
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+} 
