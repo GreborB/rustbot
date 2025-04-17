@@ -1,12 +1,30 @@
 require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
-const { setupSocketHandlers } = require('./socketHandlers');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { setupSocketHandlers } from './socketHandlers';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const server = http.createServer(app);
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: ['http://129.151.212.105:3000', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+app.use(cors({
+  origin: ['http://129.151.212.105:3000', 'http://localhost:3000'],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 // Add health check endpoint
 app.get('/health', (req, res) => {
@@ -19,21 +37,10 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Something went wrong!' });
 });
 
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['http://129.151.212.105:3000'] 
-      : ['http://localhost:3000', 'http://127.0.0.1:3000'],
-    methods: ["GET", "POST"],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }
-});
-
 // Setup socket handlers
 setupSocketHandlers(io);
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 }); 

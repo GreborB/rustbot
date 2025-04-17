@@ -8,7 +8,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-    extensions: ['.js', '.jsx', '.json']
   },
   server: {
     host: '0.0.0.0',
@@ -17,25 +16,27 @@ export default defineConfig({
     hmr: {
       host: '129.151.212.105',
       port: 3000,
-      protocol: 'ws'
+      protocol: 'ws',
+      overlay: false
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://129.151.212.105:3001',
         changeOrigin: true,
-        secure: false,
+        secure: false
       },
       '/socket.io': {
-        target: 'http://localhost:3001',
+        target: 'http://129.151.212.105:3001',
         changeOrigin: true,
         secure: false,
-        ws: true,
-      },
+        ws: true
+      }
     }
   },
   build: {
-    outDir: 'dist',
     sourcemap: false,
+    outDir: 'dist',
+    assetsDir: 'assets',
     emptyOutDir: true,
     minify: 'terser',
     terserOptions: {
@@ -50,17 +51,15 @@ export default defineConfig({
       },
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'mui-vendor': ['@mui/material', '@mui/icons-material'],
-          'router-vendor': ['react-router-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           'socket-vendor': ['socket.io-client']
         }
       }
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material', 'react-router-dom', 'socket.io-client'],
-    exclude: ['fsevents']
+    include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@mui/icons-material', 'socket.io-client']
   },
   base: '/'
 }); 
