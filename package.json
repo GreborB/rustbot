@@ -7,6 +7,7 @@
       "install": "cd backend && npm install --no-audit --no-fund --no-optional --no-package-lock && cd ../frontend && npm install --no-audit --no-fund --no-optional --no-package-lock",
       "build": "cd frontend && npm run build",
       "start": "cd backend && npm start",
+      "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
       "dev:frontend": "cd frontend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "dev:backend": "cd backend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "pm2:start": "pm2 start ecosystem.config.js",
