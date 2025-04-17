@@ -4,7 +4,7 @@
     "private": true,
     "description": "A lightweight Rust server management bot",
     "scripts": {
-      "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+      "install": "npm install && cd backend && npm install && cd ../frontend && npm install",
       "build": "cd frontend && npm run build",
       "start": "cd backend && npm start",
       "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
@@ -15,6 +15,10 @@
     "license": "MIT",
     "engines": {
       "node": ">=16.0.0"
+    },
+    "dependencies": {
+      "nodemon": "^3.0.3",
+      "vite": "^5.1.4"
     },
     "devDependencies": {
       "concurrently": "^8.2.2"
