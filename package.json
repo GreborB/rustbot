@@ -7,7 +7,8 @@
       "install": "cd backend && npm install --no-audit --no-fund --no-optional --no-package-lock && cd ../frontend && npm install --no-audit --no-fund --no-optional --no-package-lock",
       "build": "cd frontend && npm run build",
       "start": "cd backend && npm start",
-      "dev": "concurrently \"cd backend && NODE_OPTIONS='--max-old-space-size=256' npm run dev\" \"cd frontend && NODE_OPTIONS='--max-old-space-size=256' npm run dev\"",
+      "dev:frontend": "cd frontend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
+      "dev:backend": "cd backend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "start:prod": "cd backend && npm start"
     },
     "keywords": ["rust", "bot", "management"],
