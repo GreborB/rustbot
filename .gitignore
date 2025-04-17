@@ -1,12 +1,7 @@
 # Dependencies
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-# Build files
-frontend/dist/
-frontend/build/
+.pnp/
+.pnp.js
 
 # Environment variables
 .env
@@ -15,22 +10,34 @@ frontend/build/
 .env.test.local
 .env.production.local
 
-# IDE files
+# Build outputs
+dist/
+build/
+out/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+
+# Editor directories and files
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS files
 .DS_Store
 Thumbs.db
-
-# Testing
-/coverage
-
-# Production
-/build
-/dist
 
 # Data files
 backend/data/*.json

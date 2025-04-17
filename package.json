@@ -2,6 +2,10 @@
     "name": "rustbot",
     "version": "1.0.0",
     "private": true,
+    "workspaces": [
+      "frontend",
+      "backend"
+    ],
     "description": "RustBot Dashboard",
     "main": "index.js",
     "type": "module",
@@ -12,20 +16,21 @@
       "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
       "dev:frontend": "cd frontend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "dev:backend": "cd backend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
-      "build": "npm run build:frontend && npm run build:backend",
-      "build:frontend": "cd frontend && npm run build",
-      "build:backend": "cd backend && npm run build",
-      "start": "node backend/dist/index.js",
+      "build": "cd frontend && npm run build",
+      "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+      "start:frontend": "cd frontend && npm run start",
+      "start:backend": "cd backend && npm run prod",
       "test": "echo \"Error: no test specified\" && exit 1",
       "pm2:start": "pm2 start ecosystem.config.js",
       "pm2:stop": "pm2 stop all && pm2 delete all",
-      "start:prod": "cd backend && npm start"
+      "clean": "rimraf frontend/dist frontend/node_modules backend/node_modules node_modules"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "engines": {
-      "node": ">=18.0.0"
+      "node": ">=18.0.0",
+      "npm": ">=8.0.0"
     },
     "dependencies": {
       "@liamcottle/rustplus.js": "^2.5.0",
@@ -40,6 +45,7 @@
       "node-fetch": "^3.3.2",
       "passport": "^0.7.0",
       "passport-local": "^1.0.0",
+      "passport-steam": "^1.0.17",
       "socket.io": "^4.7.4",
       "socket.io-client": "^4.7.4"
     },
@@ -48,10 +54,12 @@
       "@types/node": "^20.11.24",
       "@types/passport": "^1.0.16",
       "@types/passport-local": "^1.0.38",
+      "@types/passport-steam": "^1.0.5",
       "concurrently": "^8.2.2",
       "nodemon": "^3.1.0",
       "typescript": "^5.3.3",
-      "vite": "^5.1.4"
+      "vite": "^5.1.4",
+      "rimraf": "^5.0.5"
     },
     "overrides": {
       "uuid": "^9.0.1",

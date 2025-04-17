@@ -1,9 +1,9 @@
 import { RustPlus } from '@liamcottle/rustplus.js';
-import config from './config.js';
 
 let rustClient = null;
 let connectionStatus = 'disconnected';
 let connectionError = null;
+let pendingPairing = null;
 
 const cleanupRustClient = async () => {
     if (rustClient) {
@@ -16,6 +16,7 @@ const cleanupRustClient = async () => {
     }
     connectionStatus = 'disconnected';
     connectionError = null;
+    pendingPairing = null;
 };
 
 export function setupSocketHandlers(io) {
@@ -28,29 +29,33 @@ export function setupSocketHandlers(io) {
             error: connectionError
         });
 
-        // Server pairing
-        socket.on('pairServer', async (data) => {
-            if (!data || !data.pairingCode) {
-                return socket.emit('pairingError', { error: 'Invalid pairing data' });
-            }
-
+        // Handle automatic pairing
+        socket.on('startPairing', async () => {
             try {
                 await cleanupRustClient();
-
                 rustClient = new RustPlus();
-                connectionStatus = 'connecting';
-                connectionError = null;
+                connectionStatus = 'waiting_for_pairing';
                 socket.emit('connectionStatus', { status: connectionStatus });
 
-                const serverInfo = await rustClient.getServerInfo(data.pairingCode);
-                
-                if (!serverInfo || !serverInfo.ip || !serverInfo.port || !serverInfo.playerToken) {
-                    throw new Error('Invalid server info received');
-                }
+                // Listen for pairing events
+                rustClient.on('pairingRequest', async (request) => {
+                    try {
+                        console.log('Received pairing request:', request);
+                        await rustClient.acceptPairing(request);
+                        connectionStatus = 'connected';
+                        socket.emit('connectionStatus', { status: connectionStatus });
+                        socket.emit('rustConnected');
+                    } catch (error) {
+                        console.error('Pairing acceptance error:', error);
+                        connectionStatus = 'error';
+                        connectionError = error.message;
+                        socket.emit('connectionStatus', { 
+                            status: connectionStatus,
+                            error: connectionError
+                        });
+                    }
+                });
 
-                await rustClient.connect(serverInfo.ip, serverInfo.port, serverInfo.playerToken);
-                
-                // Set up event listeners for the Rust client
                 rustClient.on('connected', () => {
                     console.log('Connected to Rust server');
                     connectionStatus = 'connected';
@@ -77,16 +82,11 @@ export function setupSocketHandlers(io) {
                     socket.emit('rustError', { error: error.message });
                 });
 
-                socket.emit('serverPaired', { 
-                    success: true,
-                    serverInfo: {
-                        name: serverInfo.name,
-                        players: serverInfo.players,
-                        maxPlayers: serverInfo.maxPlayers
-                    }
-                });
+                // Start listening for pairing requests
+                await rustClient.startPairing();
+                socket.emit('pairingStarted');
             } catch (error) {
-                console.error('Pairing error:', error);
+                console.error('Pairing start error:', error);
                 await cleanupRustClient();
                 socket.emit('connectionStatus', { 
                     status: 'error',

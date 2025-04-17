@@ -27,7 +27,6 @@ import {
   ShoppingCart as ShoppingCartIcon
 } from '@mui/icons-material';
 import { socketService } from './services/socket';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import './style.css';
@@ -67,13 +66,31 @@ const ErrorBoundary = ({ children }) => {
 };
 
 const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/status');
+        const data = await response.json();
+        setIsAuthenticated(data.authenticated);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
-  return user ? children : <Navigate to="/login" />;
+  return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 function App() {
@@ -202,7 +219,6 @@ function App() {
                 <Route path="/players" element={<Players socket={socketService} />} />
                 <Route path="/timers" element={<Timers socket={socketService} />} />
                 <Route path="/vending" element={<Vending socket={socketService} />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
               </Routes>
             </Suspense>
           </Box>
@@ -211,25 +227,5 @@ function App() {
     </ErrorBoundary>
   );
 }
-
-const AuthCallback = () => {
-  const { handleCallback } = useAuth();
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-
-  React.useEffect(() => {
-    if (token) {
-      handleCallback(token)
-        .then(() => {
-          window.location.href = '/';
-        })
-        .catch(() => {
-          window.location.href = '/login';
-        });
-    }
-  }, [token, handleCallback]);
-
-  return <div>Authenticating...</div>;
-};
 
 export default App;
