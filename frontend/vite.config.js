@@ -14,6 +14,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
+    hmr: {
+      host: '129.151.212.105',
+      port: 3000,
+      protocol: 'ws'
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -26,9 +31,6 @@ export default defineConfig({
         secure: false,
         ws: true,
       },
-    },
-    hmr: {
-      overlay: false
     }
   },
   build: {
