@@ -16,6 +16,8 @@ const Login = () => {
         const handleSteamCallback = async () => {
             const openidParams = new URLSearchParams(window.location.search);
             if (openidParams.has('openid.identity')) {
+                setLoading(true);
+                setStatus('Verifying Steam authentication...');
                 try {
                     // Verify the OpenID response
                     const verifyResponse = await fetch('https://steamcommunity.com/openid/login', {
@@ -26,49 +28,63 @@ const Login = () => {
                         body: openidParams.toString()
                     });
 
-                    if (verifyResponse.ok) {
-                        const steamId = openidParams.get('openid.identity').split('/').pop();
-                        
-                        // Register with Rust Companion API
-                        const registerResponse = await fetch('https://companion-rust.facepunch.com/api/push/register', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                steamId: steamId,
-                                pushToken: 'web-' + Math.random().toString(36).substring(2),
-                                deviceName: 'RustBot Dashboard'
-                            })
-                        });
-
-                        if (registerResponse.ok) {
-                            const data = await registerResponse.json();
-                            localStorage.setItem('steamToken', data.token);
-                            setIsAuthenticated(true);
-                            setUser({
-                                steamId: steamId,
-                                displayName: data.displayName,
-                                photos: [{ value: data.avatar }]
-                            });
-                            initializeSocket();
-                        }
+                    if (!verifyResponse.ok) {
+                        throw new Error('Failed to verify Steam authentication');
                     }
+
+                    const steamId = openidParams.get('openid.identity').split('/').pop();
+                    setStatus('Registering with Rust Companion API...');
+                    
+                    // Register with Rust Companion API
+                    const registerResponse = await fetch('https://companion-rust.facepunch.com/api/push/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            steamId: steamId,
+                            pushToken: 'web-' + Math.random().toString(36).substring(2),
+                            deviceName: 'RustBot Dashboard'
+                        })
+                    });
+
+                    if (!registerResponse.ok) {
+                        throw new Error('Failed to register with Rust Companion API');
+                    }
+
+                    const data = await registerResponse.json();
+                    
+                    // Store credentials
+                    localStorage.setItem('steamToken', data.token);
+                    localStorage.setItem('fcmToken', data.fcmToken);
+                    localStorage.setItem('rustplusToken', data.rustplusToken);
+                    
+                    setIsAuthenticated(true);
+                    setUser({
+                        steamId: steamId,
+                        name: openidParams.get('openid.claimed_id').split('/').pop()
+                    });
+                    setStatus('Authentication successful!');
+                    navigate('/');
                 } catch (error) {
-                    console.error('Authentication failed:', error);
-                    setStatus('Authentication failed. Please try again.');
+                    console.error('Authentication error:', error);
+                    setStatus(`Error: ${error.message}`);
+                    setLoading(false);
                 }
             }
         };
 
         handleSteamCallback();
-    }, []);
+    }, [navigate]);
 
     // Check existing authentication
     useEffect(() => {
         const checkAuth = async () => {
             const steamToken = localStorage.getItem('steamToken');
-            if (steamToken) {
+            const fcmToken = localStorage.getItem('fcmToken');
+            const rustplusToken = localStorage.getItem('rustplusToken');
+            
+            if (steamToken && fcmToken && rustplusToken) {
                 try {
                     const response = await fetch('https://companion-rust.facepunch.com/api/push/status', {
                         headers: {
@@ -87,10 +103,14 @@ const Login = () => {
                         initializeSocket();
                     } else {
                         localStorage.removeItem('steamToken');
+                        localStorage.removeItem('fcmToken');
+                        localStorage.removeItem('rustplusToken');
                     }
                 } catch (error) {
                     console.error('Auth check failed:', error);
                     localStorage.removeItem('steamToken');
+                    localStorage.removeItem('fcmToken');
+                    localStorage.removeItem('rustplusToken');
                 }
             }
         };
@@ -100,7 +120,10 @@ const Login = () => {
 
     const initializeSocket = () => {
         const steamToken = localStorage.getItem('steamToken');
-        if (!steamToken) return;
+        const fcmToken = localStorage.getItem('fcmToken');
+        const rustplusToken = localStorage.getItem('rustplusToken');
+        
+        if (!steamToken || !fcmToken || !rustplusToken) return;
 
         const newSocket = new WebSocket('wss://companion-rust.facepunch.com/ws');
         setSocket(newSocket);
@@ -109,38 +132,48 @@ const Login = () => {
             // Authenticate WebSocket connection
             newSocket.send(JSON.stringify({
                 type: 'auth',
-                token: steamToken
+                token: steamToken,
+                fcmToken: fcmToken,
+                rustplusToken: rustplusToken
             }));
             setStatus('Waiting for server pairing request...');
         };
 
         newSocket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            switch (data.type) {
-                case 'pairingRequest':
-                    setStatus('New pairing request received! Click "Accept" to pair with the server.');
-                    break;
-                case 'rustConnected':
-                    setStatus('Successfully paired with Rust server!');
-                    navigate('/dashboard');
-                    break;
-                case 'pairingError':
-                    setStatus(`Error: ${data.error}`);
-                    break;
-                case 'authSuccess':
-                    setStatus('Connected to Rust Companion. Waiting for pairing request...');
-                    break;
-                case 'authError':
-                    setStatus('Authentication failed. Please login again.');
-                    localStorage.removeItem('steamToken');
-                    setIsAuthenticated(false);
-                    break;
+            try {
+                const data = JSON.parse(event.data);
+                switch (data.type) {
+                    case 'pairingRequest':
+                        setStatus('New pairing request received! Click "Accept" to pair with the server.');
+                        break;
+                    case 'rustConnected':
+                        setStatus('Successfully paired with Rust server!');
+                        navigate('/dashboard');
+                        break;
+                    case 'pairingError':
+                        setStatus(`Error: ${data.error}`);
+                        setLoading(false);
+                        break;
+                    case 'authSuccess':
+                        setStatus('Connected to Rust Companion. Waiting for pairing request...');
+                        break;
+                    case 'authError':
+                        setStatus('Authentication failed. Please login again.');
+                        localStorage.removeItem('steamToken');
+                        localStorage.removeItem('fcmToken');
+                        localStorage.removeItem('rustplusToken');
+                        setIsAuthenticated(false);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
             }
         };
 
         newSocket.onerror = (error) => {
             console.error('WebSocket error:', error);
             setStatus('Connection error. Please try again.');
+            setLoading(false);
         };
 
         newSocket.onclose = () => {
@@ -149,42 +182,42 @@ const Login = () => {
         };
 
         return () => {
-            newSocket.close();
+            if (newSocket.readyState === WebSocket.OPEN) {
+                newSocket.close();
+            }
         };
     };
 
     const handleSteamLogin = () => {
-        const returnUrl = encodeURIComponent(window.location.origin + '/login');
-        const steamOpenIdUrl = 'https://steamcommunity.com/openid/login?' + 
-            'openid.ns=http://specs.openid.net/auth/2.0&' +
-            'openid.mode=checkid_setup&' +
-            'openid.return_to=' + returnUrl + '&' +
-            'openid.realm=' + encodeURIComponent(window.location.origin) + '&' +
-            'openid.identity=http://specs.openid.net/auth/2.0/identifier_select&' +
-            'openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select';
-        
-        window.location.href = steamOpenIdUrl;
+        setLoading(true);
+        setStatus('Redirecting to Steam...');
+        const returnTo = encodeURIComponent(window.location.origin + '/login');
+        window.location.href = `https://steamcommunity.com/openid/login?openid.ns=http://specs.openid.net/auth/2.0&openid.mode=checkid_setup&openid.return_to=${returnTo}&openid.realm=${window.location.origin}&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select`;
     };
 
     const handleAcceptPairing = () => {
-        if (socket) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ 
                 type: 'acceptPairing',
-                token: localStorage.getItem('steamToken')
+                token: localStorage.getItem('steamToken'),
+                fcmToken: localStorage.getItem('fcmToken'),
+                rustplusToken: localStorage.getItem('rustplusToken')
             }));
             setStatus('Accepting pairing request...');
             setLoading(true);
+        } else {
+            setStatus('Socket not connected. Please try again.');
         }
     };
 
     const handleLogout = () => {
         localStorage.removeItem('steamToken');
+        localStorage.removeItem('fcmToken');
+        localStorage.removeItem('rustplusToken');
         setIsAuthenticated(false);
         setUser(null);
-        if (socket) {
-            socket.close();
-        }
-        setStatus('Please login with Steam to continue');
+        setStatus('Logged out successfully');
+        navigate('/login');
     };
 
     return (
