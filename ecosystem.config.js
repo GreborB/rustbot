@@ -17,7 +17,8 @@ module.exports = {
     {
       name: 'rustbot-frontend',
       cwd: './frontend',
-      script: 'node_modules/vite/bin/vite.js',
+      script: 'npm',
+      args: 'run dev',
       watch: ['src'],
       ignore_watch: ['node_modules', 'logs'],
       env: {
