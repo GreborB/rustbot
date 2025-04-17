@@ -17,6 +17,11 @@
     "devDependencies": {
         "nodemon": "^3.0.3"
     },
+    "resolutions": {
+        "uuid": "^9.0.1",
+        "request": "^2.88.2",
+        "request-promise": "^4.2.6"
+    },
     "author": "Your Name",
     "license": "MIT"
 }
