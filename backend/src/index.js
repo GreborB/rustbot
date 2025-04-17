@@ -6,11 +6,12 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import passport from './config/auth.js';
+import passport from 'passport';
 import { setupSocketHandlers } from './socketHandlers.js';
 import authRoutes from './routes/auth.js';
 import { connectDB } from './config/database.js';
 import errorHandler from './middleware/error.js';
+import config from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +21,7 @@ const httpServer = createServer(app);
 
 // Session configuration
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: config.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -35,9 +36,7 @@ app.use(passport.session());
 
 // CORS configuration
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? process.env.FRONTEND_URL 
-        : 'http://localhost:3000',
+    origin: config.CORS_ORIGIN || '*',
     methods: ['GET', 'POST'],
     credentials: true
 };
@@ -58,7 +57,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 connectDB();
 
 // Auth routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Add health check endpoint
 app.get('/health', (req, res) => {
