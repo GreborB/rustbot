@@ -29,6 +29,21 @@
     font-size: 1.1rem;
 }
 
+.user-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.user-info .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #ff6b00;
+}
+
 .loading-spinner {
     margin: 2rem 0;
 }
