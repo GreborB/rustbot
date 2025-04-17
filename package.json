@@ -9,6 +9,8 @@
       "start": "cd backend && npm start",
       "dev:frontend": "cd frontend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "dev:backend": "cd backend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
+      "pm2:start": "pm2 start ecosystem.config.js",
+      "pm2:stop": "pm2 stop all && pm2 delete all",
       "start:prod": "cd backend && npm start"
     },
     "keywords": ["rust", "bot", "management"],
