@@ -27,12 +27,12 @@ import {
 } from '@mui/icons-material';
 import { socketService } from './services/socket';
 
-import Dashboard from './components/Dashboard';
-import Storage from './components/Storage';
-import SmartSwitches from './components/SmartSwitches';
-import Players from './components/Players';
-import Timers from './components/Timers';
-import Vending from './components/Vending';
+import Dashboard from './components/Dashboard.jsx';
+import Storage from './components/Storage.jsx';
+import SmartSwitches from './components/SmartSwitches.jsx';
+import Players from './components/Players.jsx';
+import Timers from './components/Timers.jsx';
+import Vending from './components/Vending.jsx';
 
 const drawerWidth = 240;
 
