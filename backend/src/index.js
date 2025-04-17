@@ -6,7 +6,6 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import passport from 'passport';
 import { setupSocketHandlers } from './socketHandlers.js';
 import authRoutes from './routes/auth.js';
 import { connectDB } from './config/database.js';
@@ -18,6 +17,21 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: config.CORS_ORIGIN || '*',
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
+
+// Middleware
+app.use(cors({
+    origin: config.CORS_ORIGIN || '*',
+    credentials: true
+}));
+
+app.use(express.json());
 
 // Session configuration
 app.use(session({
@@ -30,47 +44,27 @@ app.use(session({
     }
 }));
 
-// Initialize passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// CORS configuration
-const corsOptions = {
-    origin: config.CORS_ORIGIN || '*',
-    methods: ['GET', 'POST'],
-    credentials: true
-};
-
-const io = new Server(httpServer, {
-    cors: corsOptions,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['websocket', 'polling']
-});
-
-// Basic middleware
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-
 // Connect to database
 connectDB();
 
-// Auth routes
+// Routes
 app.use('/api/auth', authRoutes);
 
-// Add health check endpoint
+// Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok' });
+    res.json({ status: 'ok' });
 });
 
-// Setup socket handlers
+// Socket.IO setup
 setupSocketHandlers(io);
 
 // Error handling middleware
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
 
 const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }); 

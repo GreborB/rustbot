@@ -1,49 +1,21 @@
 import express from 'express';
-import passport from 'passport';
-import { Strategy as SteamStrategy } from 'passport-steam';
+import session from 'express-session';
 import config from '../config.js';
 
 const router = express.Router();
 
-// Configure Steam Strategy
-passport.use(new SteamStrategy({
-    returnURL: `${config.BASE_URL}/api/auth/steam/return`,
-    realm: config.BASE_URL,
-    apiKey: config.STEAM_API_KEY
-}, (identifier, profile, done) => {
-    // For now, we'll just return the profile
-    // In a real app, you'd want to store this in a database
-    return done(null, profile);
-}));
-
-// Serialize user for the session
-passport.serializeUser((user, done) => {
-    done(null, user);
-});
-
-// Deserialize user from the session
-passport.deserializeUser((user, done) => {
-    done(null, user);
-});
-
-// Steam authentication routes
-router.get('/steam', passport.authenticate('steam'));
-
-router.get('/steam/return', 
-    passport.authenticate('steam', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/');
-    }
-);
-
-// Check authentication status
+// Check if bot is paired
 router.get('/status', (req, res) => {
-    res.json({ authenticated: req.isAuthenticated() });
+    res.json({ 
+        authenticated: req.session.rustConnected || false,
+        status: req.session.rustStatus || 'disconnected'
+    });
 });
 
-// Logout route
+// Logout route (unpair bot)
 router.get('/logout', (req, res) => {
-    req.logout();
+    req.session.rustConnected = false;
+    req.session.rustStatus = 'disconnected';
     res.redirect('/');
 });
 
