@@ -1,4 +1,5 @@
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 
 let rustClient = null;
 let connectionStatus = 'disconnected';
