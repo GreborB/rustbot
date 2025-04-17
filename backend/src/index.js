@@ -1,11 +1,11 @@
-require('dotenv').config();
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { setupSocketHandlers } from './socketHandlers';
+import { setupSocketHandlers } from './socketHandlers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
