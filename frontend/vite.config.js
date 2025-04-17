@@ -15,12 +15,12 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://129.151.212.105:3001',
         changeOrigin: true,
         secure: false,
       },
       '/socket.io': {
-        target: 'http://localhost:3001',
+        target: 'http://129.151.212.105:3001',
         changeOrigin: true,
         secure: false,
         ws: true,
@@ -30,7 +30,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'src/index.js'),
+      },
+    },
   },
   base: '/'
 }); 
