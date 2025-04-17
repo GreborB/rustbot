@@ -4,7 +4,7 @@
     "private": true,
     "description": "A lightweight Rust server management bot",
     "scripts": {
-      "install": "npm install && cd backend && npm install && cd ../frontend && npm install",
+      "install": "cd backend && npm install && cd ../frontend && npm install",
       "build": "cd frontend && npm run build",
       "start": "cd backend && npm start",
       "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
