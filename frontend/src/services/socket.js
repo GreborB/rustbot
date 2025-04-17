@@ -2,14 +2,6 @@ import { io } from 'socket.io-client';
 
 const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
 
-export const socket = io(API_URL, {
-    autoConnect: false,
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    timeout: 20000
-});
-
 class SocketService {
     constructor() {
         this.socket = null;
@@ -22,7 +14,12 @@ class SocketService {
         this.socket = io(API_URL, {
             auth: {
                 token: this.token
-            }
+            },
+            autoConnect: false,
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000
         });
 
         this.socket.on('connect', () => {
@@ -36,10 +33,11 @@ class SocketService {
         this.socket.on('error', (error) => {
             console.error('Socket error:', error);
             if (error.message === 'Authentication error') {
-                // Handle authentication error (e.g., redirect to login)
                 window.location.href = '/login';
             }
         });
+
+        this.socket.connect();
     }
 
     disconnect() {
