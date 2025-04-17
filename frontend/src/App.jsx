@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import {
@@ -117,17 +117,47 @@ const PrivateRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
-function App() {
+const App = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [socketConnected, setSocketConnected] = React.useState(false);
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle unhandled promise rejections
+  React.useEffect(() => {
+    const handleUnhandledRejection = (event) => {
+      console.error('Unhandled Promise Rejection:', event.reason);
+      // Prevent the default browser handling
+      event.preventDefault();
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+  }, []);
 
   const theme = React.useMemo(
     () =>
       createTheme({
         palette: {
           mode: prefersDarkMode ? 'dark' : 'light',
+          primary: {
+            main: '#2196f3',
+          },
+          secondary: {
+            main: '#f50057',
+          },
+        },
+        typography: {
+          fontFamily: [
+            '-apple-system',
+            'BlinkMacSystemFont',
+            '"Segoe UI"',
+            'Roboto',
+            '"Helvetica Neue"',
+            'Arial',
+            'sans-serif',
+          ].join(','),
         },
       }),
     [prefersDarkMode],
@@ -136,39 +166,48 @@ function App() {
   useEffect(() => {
     const handleConnect = () => {
       setSocketConnected(true);
-      console.log('Socket connected');
+      console.log('Socket connected in App component');
     };
     
     const handleDisconnect = () => {
       setSocketConnected(false);
-      console.log('Socket disconnected');
+      console.log('Socket disconnected in App component');
     };
 
     const handleError = (error) => {
-      console.error('Socket error:', error);
+      console.error('Socket error in App component:', error);
       setSocketConnected(false);
       if (error.message === 'Authentication error') {
+        console.log('Authentication error detected, redirecting to login');
+        localStorage.removeItem('steamToken');
         navigate('/login');
       }
     };
 
+    // Setup socket event listeners
     socketService.on('connect', handleConnect);
     socketService.on('disconnect', handleDisconnect);
     socketService.on('error', handleError);
+    socketService.on('connect_error', handleError);
 
-    // Only connect if we have a token
+    // Only connect if we have a token and we're not on the login page
     const token = localStorage.getItem('steamToken');
-    if (token) {
+    if (token && location.pathname !== '/login') {
+      console.log('Token found, connecting to socket');
       socketService.connect();
+    } else {
+      console.log('No token found or on login page, not connecting');
     }
 
+    // Cleanup
     return () => {
+      console.log('App component unmounting, cleaning up socket listeners');
       socketService.off('connect', handleConnect);
       socketService.off('disconnect', handleDisconnect);
       socketService.off('error', handleError);
-      socketService.disconnect();
+      socketService.off('connect_error', handleError);
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -187,13 +226,19 @@ function App() {
     <div>
       <Toolbar>
         <Typography variant="h6" noWrap component="div">
-          Kinabot
+          RustBot
         </Typography>
       </Toolbar>
       <Divider />
       <List>
         {menuItems.map((item) => (
-          <ListItem button key={item.text} component="a" href={item.path}>
+          <ListItem 
+            button 
+            key={item.text} 
+            component={Link} 
+            to={item.path}
+            selected={location.pathname === item.path}
+          >
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>

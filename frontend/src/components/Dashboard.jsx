@@ -42,51 +42,86 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [isLoading, setIsLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
   useEffect(() => {
+    let isMounted = true;
+    let retryTimeout = null;
+
     const handleConnectionStatus = (data) => {
+      if (!isMounted) return;
+      console.log('Connection status update:', data);
       setConnectionStatus(data.status);
       if (data.error) {
         setError(data.error);
+        setIsLoading(false);
       }
     };
 
     const handleServerPaired = (data) => {
+      if (!isMounted) return;
+      console.log('Server paired:', data);
       if (data.success) {
         setServerInfo({
           connected: true,
-          name: data.serverInfo.name,
-          players: data.serverInfo.players,
-          maxPlayers: data.serverInfo.maxPlayers
+          name: data.serverInfo?.name || 'Unknown Server',
+          players: data.serverInfo?.players || 0,
+          maxPlayers: data.serverInfo?.maxPlayers || 0
         });
         setError('');
+        setIsLoading(false);
+        setRetryCount(0);
       }
     };
 
     const handlePairingError = (data) => {
-      setError(data.error);
+      if (!isMounted) return;
+      console.error('Pairing error:', data);
+      setError(data.error || 'Unknown pairing error');
       setIsLoading(false);
+      
+      // Retry logic
+      if (retryCount < maxRetries) {
+        console.log(`Retrying pairing (${retryCount + 1}/${maxRetries})...`);
+        setRetryCount(prev => prev + 1);
+        retryTimeout = setTimeout(() => {
+          if (isMounted) {
+            setIsLoading(true);
+            socketService.emit('startPairing');
+          }
+        }, 3000);
+      }
     };
 
     const handleRustConnected = () => {
+      if (!isMounted) return;
+      console.log('Rust connected');
       setServerInfo(prev => ({ ...prev, connected: true }));
       setIsLoading(false);
+      setRetryCount(0);
     };
 
     const handleRustDisconnected = () => {
+      if (!isMounted) return;
+      console.log('Rust disconnected');
       setServerInfo(prev => ({ ...prev, connected: false }));
     };
 
     const handleRustError = (data) => {
-      setError(data.error);
+      if (!isMounted) return;
+      console.error('Rust error:', data);
+      setError(data.error || 'Unknown Rust error');
       setIsLoading(false);
     };
 
-    // Connect to socket if not already connected
+    // Make sure socket is connected before setting up listeners
     if (!socketService.isConnected()) {
+      console.log('Socket not connected, connecting...');
       socketService.connect();
     }
 
+    // Set up event listeners
     socketService.on('connectionStatus', handleConnectionStatus);
     socketService.on('serverPaired', handleServerPaired);
     socketService.on('pairingError', handlePairingError);
@@ -95,10 +130,15 @@ function Dashboard() {
     socketService.on('rustError', handleRustError);
 
     // Start pairing process
+    console.log('Starting pairing process...');
     setIsLoading(true);
     socketService.emit('startPairing');
 
+    // Cleanup function
     return () => {
+      isMounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      
       socketService.off('connectionStatus', handleConnectionStatus);
       socketService.off('serverPaired', handleServerPaired);
       socketService.off('pairingError', handlePairingError);
