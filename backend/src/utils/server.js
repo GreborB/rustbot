@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 async function getServerPopulation() {
   try {
@@ -29,6 +29,6 @@ async function getServerPopulation() {
   }
 }
 
-module.exports = {
+export default {
   getServerPopulation
 }; 

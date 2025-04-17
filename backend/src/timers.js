@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('./config');
-const { RustPlus } = require('@liamcottle/rustplus.js');
+import fs from 'fs';
+import path from 'path';
+import config from './config.js';
+import { RustPlus } from '@liamcottle/rustplus.js';
 
 let activeTimers = new Map();
 let rustPlus = null;
@@ -112,7 +112,7 @@ function startTimerLoop() {
 loadTimers();
 startTimerLoop();
 
-module.exports = {
+export default {
     addTimer,
     removeTimer,
     getTimers,

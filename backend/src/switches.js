@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('./config');
-const { RustPlus } = require('@liamcottle/rustplus.js');
+import fs from 'fs';
+import path from 'path';
+import config from './config.js';
+import { RustPlus } from '@liamcottle/rustplus.js';
 
 let smartSwitches = new Map();
 let rustPlus = null;
@@ -103,7 +103,7 @@ function getSwitches() {
 // Initialize switches on module load
 loadSwitches();
 
-module.exports = {
+export default {
     addSwitch,
     removeSwitch,
     toggleSwitch,

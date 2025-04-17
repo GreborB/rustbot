@@ -1,5 +1,5 @@
-const { RustPlus } = require('@liamcottle/rustplus.js');
-const config = require('./config');
+import { RustPlus } from '@liamcottle/rustplus.js';
+import config from './config.js';
 
 let rustPlus = null;
 let pairingInfo = null;
@@ -124,7 +124,7 @@ function setupPairingHandlers(io) {
     });
 }
 
-module.exports = {
+export default {
     setupPairingHandlers,
     getServerInfo,
     initializeRustPlus

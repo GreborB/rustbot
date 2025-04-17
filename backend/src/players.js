@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('./config');
-const { RustPlus } = require('@liamcottle/rustplus.js');
+import fs from 'fs';
+import path from 'path';
+import config from './config.js';
+import { RustPlus } from '@liamcottle/rustplus.js';
 
 let trackedPlayers = new Map();
 let rustPlus = null;
@@ -89,7 +89,7 @@ function getPlayers() {
 // Initialize players on module load
 loadPlayers();
 
-module.exports = {
+export default {
     addPlayer,
     removePlayer,
     updatePlayerStatus,

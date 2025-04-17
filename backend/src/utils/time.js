@@ -39,7 +39,7 @@ function getTimeUntilNight() {
   }
 }
 
-module.exports = {
+export default {
   getServerTime,
   getTimeUntilNight
 }; 

@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
-const config = require('./config');
-const { RustPlus } = require('@liamcottle/rustplus.js');
+import mongoose from 'mongoose';
+import fs from 'fs';
+import path from 'path';
+import config from './config.js';
+import { RustPlus } from '@liamcottle/rustplus.js';
 
 const StorageMonitorSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
@@ -206,7 +206,7 @@ function setupStorage(io) {
   });
 }
 
-module.exports = {
+export default {
   setupStorage,
   searchBox,
   searchAllBoxes,
