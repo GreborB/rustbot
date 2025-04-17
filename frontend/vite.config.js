@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    extensions: ['.js', '.jsx', '.json']
   },
   server: {
     host: '0.0.0.0',
@@ -33,7 +34,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'src/index.js'),
+        main: path.resolve(__dirname, 'src/index.jsx'),
       },
     },
   },
