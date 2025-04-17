@@ -25,7 +25,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'build',
-    sourcemap: true
-  }
+    outDir: 'dist',
+    sourcemap: true,
+    emptyOutDir: true
+  },
+  base: '/'
 }); 
