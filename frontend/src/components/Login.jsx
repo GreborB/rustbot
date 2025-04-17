@@ -55,11 +55,13 @@ const Login = () => {
                 <div className="instructions">
                     <h3>How to connect:</h3>
                     <ol>
-                        <li>Open Rust and go to the server you want to connect to</li>
-                        <li>Open the Rust+ app menu in game</li>
-                        <li>Click the "Pair" button</li>
+                        <li>Launch Rust and log in to your Steam account</li>
+                        <li>Join the server you want to connect the bot to</li>
+                        <li>Open the Rust+ app menu in game (F1)</li>
+                        <li>Click the "Pair" button in the Rust+ app</li>
                         <li>The bot will automatically accept the pairing request</li>
                     </ol>
+                    <p className="note">Note: You must be logged into Steam in Rust to pair with the bot.</p>
                 </div>
             </div>
         </div>
