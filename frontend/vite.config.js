@@ -35,6 +35,13 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     emptyOutDir: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'src/index.jsx'),
@@ -50,7 +57,8 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material', 'react-router-dom', 'socket.io-client']
+    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material', 'react-router-dom', 'socket.io-client'],
+    exclude: ['fsevents']
   },
   base: '/'
 }); 
