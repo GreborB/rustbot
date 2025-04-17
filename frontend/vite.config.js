@@ -68,7 +68,7 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@emotion/react'],
     exclude: ['@vitejs/plugin-react']
   },
-  base: '/',
+  base: './',
   preview: {
     port: 3000,
     strictPort: true,
