@@ -14,19 +14,16 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     hmr: {
-      host: '129.151.212.105',
-      port: 3000,
-      protocol: 'ws',
       overlay: false
     },
     proxy: {
       '/api': {
-        target: 'http://129.151.212.105:3001',
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false
       },
       '/socket.io': {
-        target: 'http://129.151.212.105:3001',
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         ws: true

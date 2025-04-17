@@ -1,6 +1,14 @@
 import { io } from 'socket.io-client';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
+
+export const socket = io(API_URL, {
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
 
 class SocketService {
     constructor() {
