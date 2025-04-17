@@ -2,30 +2,50 @@
     "name": "rustbot",
     "version": "1.0.0",
     "private": true,
-    "description": "A lightweight Rust server management bot",
+    "description": "RustBot Dashboard",
+    "main": "index.js",
+    "type": "module",
     "scripts": {
-      "install": "cd backend && npm install --no-audit --no-fund --no-optional --no-package-lock && cd ../frontend && npm install --no-audit --no-fund --no-optional --no-package-lock",
-      "build": "cd frontend && npm run build",
-      "start": "cd backend && npm start",
+      "install:all": "npm install && npm run install:frontend && npm run install:backend",
+      "install:frontend": "cd frontend && npm install",
+      "install:backend": "cd backend && npm install",
       "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
       "dev:frontend": "cd frontend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
       "dev:backend": "cd backend && NODE_OPTIONS='--max-old-space-size=128' npm run dev",
+      "build": "npm run build:frontend && npm run build:backend",
+      "build:frontend": "cd frontend && npm run build",
+      "build:backend": "cd backend && npm run build",
+      "start": "node backend/dist/index.js",
+      "test": "echo \"Error: no test specified\" && exit 1",
       "pm2:start": "pm2 start ecosystem.config.js",
       "pm2:stop": "pm2 stop all && pm2 delete all",
       "start:prod": "cd backend && npm start"
     },
-    "keywords": ["rust", "bot", "management"],
-    "author": "Your Name",
-    "license": "MIT",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
     "engines": {
       "node": ">=16.0.0"
     },
     "dependencies": {
-      "nodemon": "^3.0.3",
-      "vite": "^5.1.4"
+      "axios": "^1.6.7",
+      "bcryptjs": "^2.4.3",
+      "cors": "^2.8.5",
+      "dotenv": "^16.4.5",
+      "express": "^4.18.3",
+      "express-session": "^1.18.0",
+      "jsonwebtoken": "^9.0.2",
+      "mongoose": "^8.2.0",
+      "socket.io": "^4.7.4",
+      "socket.io-client": "^4.7.4"
     },
     "devDependencies": {
-      "concurrently": "^8.2.2"
+      "@types/express": "^4.17.21",
+      "@types/node": "^20.11.24",
+      "concurrently": "^8.2.2",
+      "nodemon": "^3.1.0",
+      "typescript": "^5.3.3",
+      "vite": "^5.1.4"
     },
     "overrides": {
       "uuid": "^9.0.1",
