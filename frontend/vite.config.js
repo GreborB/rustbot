@@ -54,6 +54,7 @@ export default defineConfig({
             if (id.includes('react')) return 'react-vendor';
             if (id.includes('@mui')) return 'mui-vendor';
             if (id.includes('@emotion')) return 'emotion-vendor';
+            if (id.includes('socket.io-client')) return 'socket-vendor';
             return 'vendor';
           }
         },
@@ -65,7 +66,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@emotion/react'],
+    include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@emotion/react', 'socket.io-client'],
     exclude: ['@vitejs/plugin-react']
   },
   base: './',

@@ -21,6 +21,16 @@ const cleanupRustClient = async () => {
 };
 
 export function setupSocketHandlers(io) {
+    io.use((socket, next) => {
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Authentication error'));
+        }
+        // In a real application, you would verify the token here
+        // For now, we'll just check if it exists
+        next();
+    });
+
     io.on('connection', (socket) => {
         console.log('Client connected');
 
@@ -34,9 +44,20 @@ export function setupSocketHandlers(io) {
         socket.on('startPairing', async () => {
             try {
                 await cleanupRustClient();
-                rustClient = new RustPlus();
-                connectionStatus = 'waiting_for_pairing';
-                socket.emit('connectionStatus', { status: connectionStatus });
+                try {
+                    rustClient = new RustPlus();
+                    connectionStatus = 'waiting_for_pairing';
+                    socket.emit('connectionStatus', { status: connectionStatus });
+                } catch (error) {
+                    console.error('Failed to initialize Rust+ client:', error);
+                    connectionStatus = 'error';
+                    connectionError = 'Failed to initialize Rust+ client';
+                    socket.emit('connectionStatus', { 
+                        status: connectionStatus,
+                        error: connectionError
+                    });
+                    return;
+                }
 
                 // Listen for pairing events
                 rustClient.on('pairingRequest', async (request) => {
@@ -65,27 +86,39 @@ export function setupSocketHandlers(io) {
                     socket.emit('rustConnected');
                 });
 
-                rustClient.on('disconnected', () => {
-                    console.log('Disconnected from Rust server');
-                    connectionStatus = 'disconnected';
-                    socket.emit('connectionStatus', { status: connectionStatus });
-                    socket.emit('rustDisconnected');
-                });
-
                 rustClient.on('error', (error) => {
-                    console.error('Rust client error:', error);
+                    console.error('Rust+ client error:', error);
                     connectionStatus = 'error';
                     connectionError = error.message;
                     socket.emit('connectionStatus', { 
                         status: connectionStatus,
                         error: connectionError
                     });
-                    socket.emit('rustError', { error: error.message });
+                });
+
+                rustClient.on('disconnected', async () => {
+                    console.log('Rust+ client disconnected');
+                    await cleanupRustClient();
+                    socket.emit('connectionStatus', { 
+                        status: 'disconnected',
+                        error: null
+                    });
                 });
 
                 // Start listening for pairing requests
-                await rustClient.startPairing();
-                socket.emit('pairingStarted');
+                try {
+                    await rustClient.startPairing();
+                    socket.emit('pairingStarted');
+                } catch (error) {
+                    console.error('Failed to start pairing:', error);
+                    await cleanupRustClient();
+                    connectionStatus = 'error';
+                    connectionError = error.message;
+                    socket.emit('connectionStatus', { 
+                        status: connectionStatus,
+                        error: connectionError
+                    });
+                }
             } catch (error) {
                 console.error('Pairing start error:', error);
                 await cleanupRustClient();
