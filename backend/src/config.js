@@ -1,6 +1,6 @@
 module.exports = {
     web: {
-        port: process.env.PORT || 3000
+        port: process.env.PORT || 3001
     },
     rust: {
         ip: process.env.RUST_SERVER_IP || '',
