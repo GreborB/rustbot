@@ -1,6 +1,9 @@
 import { io } from 'socket.io-client';
 
-export const socketService = io('http://129.151.212.105:3001', {
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+const socketUrl = wsUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+
+export const socketService = io(socketUrl, {
   withCredentials: true,
   transports: ['websocket', 'polling']
 }); 
