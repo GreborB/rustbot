@@ -1,20 +1,27 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 const server = http.createServer((req, res) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   
+  // Parse the URL
+  const parsedUrl = url.parse(req.url);
+  let filePath = path.join(__dirname, 'dist', parsedUrl.pathname);
+
   // Handle API requests
-  if (req.url.startsWith('/api/')) {
+  if (parsedUrl.pathname.startsWith('/api/')) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
     return;
   }
 
-  // Serve static files
-  let filePath = path.join(__dirname, 'dist', req.url === '/' ? 'index.html' : req.url);
-  
+  // If the path is a directory or doesn't have an extension, serve index.html
+  if (parsedUrl.pathname === '/' || !path.extname(filePath)) {
+    filePath = path.join(__dirname, 'dist', 'index.html');
+  }
+
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
