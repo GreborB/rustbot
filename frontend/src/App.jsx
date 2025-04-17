@@ -15,7 +15,8 @@ import {
   IconButton,
   Divider,
   useMediaQuery,
-  CircularProgress
+  CircularProgress,
+  Button
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -30,21 +31,18 @@ import { socketService } from './services/socket';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import './style.css';
+import { useNavigate } from 'react-router-dom';
 
 const drawerWidth = 240;
 
-const LoadingSpinner = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-    <CircularProgress />
-  </Box>
-);
-
 const ErrorBoundary = ({ children }) => {
   const [hasError, setHasError] = React.useState(false);
+  const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
     const handleError = (error) => {
       console.error('Error caught by boundary:', error);
+      setError(error);
       setHasError(true);
     };
 
@@ -54,10 +52,21 @@ const ErrorBoundary = ({ children }) => {
 
   if (hasError) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Typography variant="h6" color="error">
-          Something went wrong. Please refresh the page.
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh">
+        <Typography variant="h5" color="error" gutterBottom>
+          Something went wrong
         </Typography>
+        <Typography variant="body1" color="textSecondary">
+          {error?.message || 'An unexpected error occurred'}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          Reload Page
+        </Button>
       </Box>
     );
   }
@@ -65,70 +74,101 @@ const ErrorBoundary = ({ children }) => {
   return children;
 };
 
-const PrivateRoute = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
+const LoadingSpinner = ({ message }) => (
+  <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="100vh">
+    <CircularProgress />
+    {message && (
+      <Typography variant="body1" sx={{ mt: 2 }}>
+        {message}
+      </Typography>
+    )}
+  </Box>
+);
 
-  useEffect(() => {
+const PrivateRoute = ({ children }) => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/status');
-        const data = await response.json();
-        setIsAuthenticated(data.authenticated);
+        const token = localStorage.getItem('steamToken');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        setIsAuthenticated(true);
       } catch (error) {
         console.error('Auth check failed:', error);
-        setIsAuthenticated(false);
+        navigate('/login');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [navigate]);
 
-  if (loading) {
-    return <LoadingSpinner />;
+  if (isLoading) {
+    return <LoadingSpinner message="Checking authentication..." />;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 function App() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [socketConnected, setSocketConnected] = React.useState(false);
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const navigate = useNavigate();
 
   const theme = React.useMemo(
     () =>
       createTheme({
         palette: {
           mode: prefersDarkMode ? 'dark' : 'light',
-          primary: {
-            main: '#1976d2',
-          },
-          secondary: {
-            main: '#dc004e',
-          },
         },
       }),
     [prefersDarkMode],
   );
 
   useEffect(() => {
-    const handleConnect = () => setSocketConnected(true);
-    const handleDisconnect = () => setSocketConnected(false);
+    const handleConnect = () => {
+      setSocketConnected(true);
+      console.log('Socket connected');
+    };
+    
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+      console.log('Socket disconnected');
+    };
+
+    const handleError = (error) => {
+      console.error('Socket error:', error);
+      setSocketConnected(false);
+      if (error.message === 'Authentication error') {
+        navigate('/login');
+      }
+    };
 
     socketService.on('connect', handleConnect);
     socketService.on('disconnect', handleDisconnect);
+    socketService.on('error', handleError);
 
-    socketService.connect();
+    // Only connect if we have a token
+    const token = localStorage.getItem('steamToken');
+    if (token) {
+      socketService.connect();
+    }
 
     return () => {
       socketService.off('connect', handleConnect);
       socketService.off('disconnect', handleDisconnect);
+      socketService.off('error', handleError);
       socketService.disconnect();
     };
-  }, []);
+  }, [navigate]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -163,68 +203,129 @@ function App() {
   );
 
   return (
-    <ErrorBoundary>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box sx={{ display: 'flex' }}>
-          <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-            <Toolbar>
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2 }}
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <ErrorBoundary>
+        <Router>
+          <Box sx={{ display: 'flex' }}>
+            <AppBar
+              position="fixed"
+              sx={{
+                width: { sm: `calc(100% - ${drawerWidth}px)` },
+                ml: { sm: `${drawerWidth}px` },
+              }}
+            >
+              <Toolbar>
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 2, display: { sm: 'none' } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+                <Typography variant="h6" noWrap component="div">
+                  RustBot Dashboard
+                </Typography>
+              </Toolbar>
+            </AppBar>
+            <Box
+              component="nav"
+              sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+            >
+              <Drawer
+                variant="temporary"
+                open={mobileOpen}
+                onClose={handleDrawerToggle}
+                ModalProps={{
+                  keepMounted: true,
+                }}
+                sx={{
+                  display: { xs: 'block', sm: 'none' },
+                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                }}
               >
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="h6" noWrap component="div">
-                Kinabot Dashboard
-              </Typography>
-            </Toolbar>
-          </AppBar>
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={handleDrawerToggle}
-            ModalProps={{
-              keepMounted: true,
-            }}
-            sx={{
-              width: drawerWidth,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: drawerWidth,
-                boxSizing: 'border-box',
-              },
-            }}
-          >
-            {drawer}
-          </Drawer>
-          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-            <Toolbar />
-            <Suspense fallback={<LoadingSpinner />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route
-                  path="/"
-                  element={
-                    <PrivateRoute>
-                      <Dashboard />
-                    </PrivateRoute>
-                  }
-                />
-                <Route path="/storage" element={<Storage socket={socketService} />} />
-                <Route path="/switches" element={<SmartSwitches socket={socketService} />} />
-                <Route path="/players" element={<Players socket={socketService} />} />
-                <Route path="/timers" element={<Timers socket={socketService} />} />
-                <Route path="/vending" element={<Vending socket={socketService} />} />
-              </Routes>
-            </Suspense>
+                {drawer}
+              </Drawer>
+              <Drawer
+                variant="permanent"
+                sx={{
+                  display: { xs: 'none', sm: 'block' },
+                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                }}
+                open
+              >
+                {drawer}
+              </Drawer>
+            </Box>
+            <Box
+              component="main"
+              sx={{
+                flexGrow: 1,
+                p: 3,
+                width: { sm: `calc(100% - ${drawerWidth}px)` },
+              }}
+            >
+              <Toolbar />
+              <Suspense fallback={<LoadingSpinner message="Loading..." />}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route
+                    path="/"
+                    element={
+                      <PrivateRoute>
+                        <Dashboard />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/storage"
+                    element={
+                      <PrivateRoute>
+                        <div>Storage Page</div>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/switches"
+                    element={
+                      <PrivateRoute>
+                        <div>Switches Page</div>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/players"
+                    element={
+                      <PrivateRoute>
+                        <div>Players Page</div>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/timers"
+                    element={
+                      <PrivateRoute>
+                        <div>Timers Page</div>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/vending"
+                    element={
+                      <PrivateRoute>
+                        <div>Vending Page</div>
+                      </PrivateRoute>
+                    }
+                  />
+                </Routes>
+              </Suspense>
+            </Box>
           </Box>
-        </Box>
-      </ThemeProvider>
-    </ErrorBoundary>
+        </Router>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
