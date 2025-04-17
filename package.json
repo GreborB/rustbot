@@ -1,23 +1,23 @@
 {
-    "name": "rustbot",
+    "name": "kinabot",
     "version": "1.0.0",
-    "description": "A Rust+ bot for in-game commands",
-    "main": "index.js",
+    "private": true,
+    "description": "Rust+ bot with web interface",
     "scripts": {
-      "start": "node backend/server.js",
-      "dev": "concurrently \"npm run server\" \"npm run client\"",
-      "server": "nodemon backend/server.js",
-      "client": "npm start --prefix frontend"
-    },
-    "dependencies": {
-      "dotenv": "^10.0.0",
-      "express": "^4.17.1",
-      "concurrently": "^6.0.0"
+      "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+      "start:backend": "cd backend && npm start",
+      "start:frontend": "cd frontend && npm start",
+      "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+      "build:frontend": "cd frontend && npm run build",
+      "build:backend": "cd backend && npm run build"
     },
     "devDependencies": {
-      "nodemon": "^2.0.0"
+      "concurrently": "^8.2.2"
     },
     "author": "Your Name",
-    "license": "MIT"
-  }
+    "license": "MIT",
+    "engines": {
+      "node": ">=16.0.0"
+    }
+}
   

@@ -1,0 +1,93 @@
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Paper, Typography, TextField, Button, List, ListItem, ListItemText, Alert, Chip } from '@mui/material';
+import { io } from 'socket.io-client';
+
+function Players() {
+    const [steamId, setSteamId] = useState('');
+    const [playerInfo, setPlayerInfo] = useState(null);
+    const [error, setError] = useState(null);
+    const [socket, setSocket] = useState(null);
+
+    useEffect(() => {
+        const newSocket = io('http://localhost:3001');
+        setSocket(newSocket);
+
+        newSocket.on('playerInfo', (data) => {
+            setPlayerInfo(data);
+            setError(null);
+        });
+
+        newSocket.on('playerError', (data) => {
+            setError(data.error);
+            setPlayerInfo(null);
+        });
+
+        return () => newSocket.close();
+    }, []);
+
+    const getPlayerInfo = () => {
+        if (!socket || !steamId) return;
+        socket.emit('getPlayerInfo', { steamId });
+    };
+
+    return (
+        <Container maxWidth="lg">
+            <Box sx={{ my: 4 }}>
+                <Paper elevation={3} sx={{ p: 3 }}>
+                    <Typography variant="h5" component="h2" gutterBottom>
+                        Player Info
+                    </Typography>
+
+                    {error && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            {error}
+                        </Alert>
+                    )}
+
+                    <Box sx={{ mb: 2 }}>
+                        <TextField
+                            label="Steam ID"
+                            value={steamId}
+                            onChange={(e) => setSteamId(e.target.value)}
+                            fullWidth
+                            margin="normal"
+                        />
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={getPlayerInfo}
+                            sx={{ mt: 2 }}
+                        >
+                            Get Player Info
+                        </Button>
+                    </Box>
+
+                    {playerInfo && (
+                        <List>
+                            <ListItem>
+                                <ListItemText
+                                    primary={playerInfo.name}
+                                    secondary={
+                                        <Box sx={{ mt: 1 }}>
+                                            <Chip
+                                                label={playerInfo.isOnline ? 'Online' : 'Offline'}
+                                                color={playerInfo.isOnline ? 'success' : 'default'}
+                                                size="small"
+                                                sx={{ mr: 1 }}
+                                            />
+                                            <Typography variant="body2" color="text.secondary">
+                                                Last seen: {new Date(playerInfo.lastSeen).toLocaleString()}
+                                            </Typography>
+                                        </Box>
+                                    }
+                                />
+                            </ListItem>
+                        </List>
+                    )}
+                </Paper>
+            </Box>
+        </Container>
+    );
+}
+
+export default Players; 
