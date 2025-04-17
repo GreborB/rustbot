@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -14,7 +14,8 @@ import {
   ListItemText,
   IconButton,
   Divider,
-  useMediaQuery
+  useMediaQuery,
+  CircularProgress
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -33,11 +34,43 @@ import './style.css';
 
 const drawerWidth = 240;
 
+const LoadingSpinner = () => (
+  <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+    <CircularProgress />
+  </Box>
+);
+
+const ErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleError = (error) => {
+      console.error('Error caught by boundary:', error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Typography variant="h6" color="error">
+          Something went wrong. Please refresh the page.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return children;
+};
+
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   return user ? children : <Navigate to="/login" />;
@@ -45,6 +78,7 @@ const PrivateRoute = ({ children }) => {
 
 function App() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [socketConnected, setSocketConnected] = React.useState(false);
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
 
   const theme = React.useMemo(
@@ -64,11 +98,17 @@ function App() {
   );
 
   useEffect(() => {
-    // Initialize WebSocket connection
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+
+    socketService.on('connect', handleConnect);
+    socketService.on('disconnect', handleDisconnect);
+
     socketService.connect();
 
-    // Cleanup on unmount
     return () => {
+      socketService.off('connect', handleConnect);
+      socketService.off('disconnect', handleDisconnect);
       socketService.disconnect();
     };
   }, []);
@@ -106,80 +146,54 @@ function App() {
   );
 
   return (
-    <AuthProvider>
+    <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
-          <Box sx={{ display: 'flex' }}>
-            <AppBar
-              position="fixed"
-              sx={{
-                width: { sm: `calc(100% - ${drawerWidth}px)` },
-                ml: { sm: `${drawerWidth}px` },
-              }}
-            >
-              <Toolbar>
-                <IconButton
-                  color="inherit"
-                  aria-label="open drawer"
-                  edge="start"
-                  onClick={handleDrawerToggle}
-                  sx={{ mr: 2, display: { sm: 'none' } }}
-                >
-                  <MenuIcon />
-                </IconButton>
-                <Typography variant="h6" noWrap component="div">
-                  Kinabot
-                </Typography>
-              </Toolbar>
-            </AppBar>
-
-            <Box
-              component="nav"
-              sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-            >
-              <Drawer
-                variant="temporary"
-                open={mobileOpen}
-                onClose={handleDrawerToggle}
-                ModalProps={{
-                  keepMounted: true,
-                }}
-                sx={{
-                  display: { xs: 'block', sm: 'none' },
-                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                }}
+        <Box sx={{ display: 'flex' }}>
+          <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+            <Toolbar>
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={handleDrawerToggle}
+                sx={{ mr: 2 }}
               >
-                {drawer}
-              </Drawer>
-              <Drawer
-                variant="permanent"
-                sx={{
-                  display: { xs: 'none', sm: 'block' },
-                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                }}
-                open
-              >
-                {drawer}
-              </Drawer>
-            </Box>
-
-            <Box
-              component="main"
-              sx={{
-                flexGrow: 1,
-                p: 3,
-                width: { sm: `calc(100% - ${drawerWidth}px)` },
-              }}
-            >
-              <Toolbar />
+                <MenuIcon />
+              </IconButton>
+              <Typography variant="h6" noWrap component="div">
+                Kinabot Dashboard
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{
+              keepMounted: true,
+            }}
+            sx={{
+              width: drawerWidth,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+              },
+            }}
+          >
+            {drawer}
+          </Drawer>
+          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+            <Toolbar />
+            <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route
                   path="/"
                   element={
                     <PrivateRoute>
-                      <Dashboard socket={socketService} />
+                      <Dashboard />
                     </PrivateRoute>
                   }
                 />
@@ -190,11 +204,11 @@ function App() {
                 <Route path="/vending" element={<Vending socket={socketService} />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
               </Routes>
-            </Box>
+            </Suspense>
           </Box>
-        </Router>
+        </Box>
       </ThemeProvider>
-    </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -10,6 +10,7 @@ import passport from './config/auth.js';
 import { setupSocketHandlers } from './socketHandlers.js';
 import authRoutes from './routes/auth.js';
 import { connectDB } from './config/database.js';
+import errorHandler from './middleware/error.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,7 +20,7 @@ const httpServer = createServer(app);
 
 // Session configuration
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -32,18 +33,24 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// CORS configuration
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? process.env.FRONTEND_URL 
+        : 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+};
+
 const io = new Server(httpServer, {
-    cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-    },
+    cors: corsOptions,
     pingTimeout: 60000,
     pingInterval: 25000,
     transports: ['websocket', 'polling']
 });
 
 // Basic middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
@@ -58,14 +65,11 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something went wrong!' });
-});
-
 // Setup socket handlers
 setupSocketHandlers(io);
+
+// Error handling middleware
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, '0.0.0.0', () => {

@@ -5,6 +5,19 @@ let rustClient = null;
 let connectionStatus = 'disconnected';
 let connectionError = null;
 
+const cleanupRustClient = async () => {
+    if (rustClient) {
+        try {
+            await rustClient.disconnect();
+        } catch (error) {
+            console.error('Error during cleanup:', error);
+        }
+        rustClient = null;
+    }
+    connectionStatus = 'disconnected';
+    connectionError = null;
+};
+
 export function setupSocketHandlers(io) {
     io.on('connection', (socket) => {
         console.log('Client connected');
@@ -17,10 +30,12 @@ export function setupSocketHandlers(io) {
 
         // Server pairing
         socket.on('pairServer', async (data) => {
+            if (!data || !data.pairingCode) {
+                return socket.emit('pairingError', { error: 'Invalid pairing data' });
+            }
+
             try {
-                if (rustClient) {
-                    await rustClient.disconnect();
-                }
+                await cleanupRustClient();
 
                 rustClient = new RustPlus();
                 connectionStatus = 'connecting';
@@ -29,6 +44,10 @@ export function setupSocketHandlers(io) {
 
                 const serverInfo = await rustClient.getServerInfo(data.pairingCode);
                 
+                if (!serverInfo || !serverInfo.ip || !serverInfo.port || !serverInfo.playerToken) {
+                    throw new Error('Invalid server info received');
+                }
+
                 await rustClient.connect(serverInfo.ip, serverInfo.port, serverInfo.playerToken);
                 
                 // Set up event listeners for the Rust client
@@ -68,21 +87,31 @@ export function setupSocketHandlers(io) {
                 });
             } catch (error) {
                 console.error('Pairing error:', error);
-                connectionStatus = 'error';
-                connectionError = error.message;
+                await cleanupRustClient();
                 socket.emit('connectionStatus', { 
-                    status: connectionStatus,
-                    error: connectionError
+                    status: 'error',
+                    error: error.message
                 });
                 socket.emit('pairingError', { error: error.message });
             }
         });
 
+        // Handle disconnection
+        socket.on('disconnect', async () => {
+            console.log('Client disconnected');
+            await cleanupRustClient();
+        });
+
         // Core functionality
         socket.on('getStorageContents', async (data) => {
+            if (!data || !data.storageId) {
+                return socket.emit('storageError', { error: 'Invalid storage ID' });
+            }
+
             if (!rustClient || connectionStatus !== 'connected') {
                 return socket.emit('storageError', { error: 'Not connected to server' });
             }
+
             try {
                 const contents = await rustClient.getStorageContents(data.storageId);
                 socket.emit('storageContents', contents);
@@ -154,20 +183,6 @@ export function setupSocketHandlers(io) {
             } catch (error) {
                 console.error('Vending error:', error);
                 socket.emit('vendingError', { error: error.message });
-            }
-        });
-
-        socket.on('disconnect', async () => {
-            console.log('Client disconnected');
-            if (rustClient) {
-                try {
-                    await rustClient.disconnect();
-                } catch (error) {
-                    console.error('Error disconnecting Rust client:', error);
-                }
-                rustClient = null;
-                connectionStatus = 'disconnected';
-                connectionError = null;
             }
         });
     });
