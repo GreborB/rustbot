@@ -6,21 +6,30 @@ class SocketService {
         this.listeners = new Map();
         this.connectionStatus = 'disconnected';
         this.connectionError = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
     }
 
     connect() {
         try {
+            if (this.socket?.connected) {
+                console.log('Socket already connected');
+                return;
+            }
+
             this.socket = io({
                 transports: ['websocket'],
                 reconnection: true,
-                reconnectionAttempts: 5,
-                reconnectionDelay: 1000
+                reconnectionAttempts: this.maxReconnectAttempts,
+                reconnectionDelay: 1000,
+                timeout: 20000
             });
 
             this.socket.on('connect', () => {
                 console.log('Connected to server');
                 this.connectionStatus = 'connected';
                 this.connectionError = null;
+                this.reconnectAttempts = 0;
             });
 
             this.socket.on('disconnect', (reason) => {
@@ -36,6 +45,12 @@ class SocketService {
                 console.error('Connection error:', error);
                 this.connectionStatus = 'error';
                 this.connectionError = error.message;
+                this.reconnectAttempts++;
+                
+                if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+                    console.error('Max reconnection attempts reached');
+                    this.disconnect();
+                }
             });
 
             this.socket.on('error', (error) => {
@@ -43,6 +58,17 @@ class SocketService {
                 this.connectionStatus = 'error';
                 this.connectionError = error.message;
             });
+
+            this.socket.on('reconnect_attempt', (attempt) => {
+                console.log(`Reconnection attempt ${attempt}/${this.maxReconnectAttempts}`);
+            });
+
+            this.socket.on('reconnect_failed', () => {
+                console.error('Failed to reconnect after all attempts');
+                this.connectionStatus = 'error';
+                this.connectionError = 'Failed to reconnect to server';
+            });
+
         } catch (error) {
             console.error('Failed to initialize socket:', error);
             this.connectionStatus = 'error';

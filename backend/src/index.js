@@ -7,6 +7,18 @@ const { setupSocketHandlers } = require('./socketHandlers');
 
 const app = express();
 const server = http.createServer(app);
+
+// Add health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
+
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
