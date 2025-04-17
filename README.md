@@ -14,8 +14,9 @@ A lightweight Rust server management bot with a modern web interface.
 ## Prerequisites
 
 - Node.js 16.x or later
-- Rust server with RCON enabled
+- Rust server with Rust+ enabled
 - Steam account with Rust
+- Server pairing code from Rust+
 
 ## Installation
 
@@ -44,9 +45,9 @@ npm run build
 
 ## Configuration
 
-1. Start your Rust server and enable RCON
+1. Start your Rust server and ensure Rust+ is enabled
 2. In-game, open the console and type `client.connect` to get your pairing code
-3. The bot will use this code to connect to your server
+3. The bot will use this code to connect to your server via the Rust+ protocol
 
 ## Running on VM
 
