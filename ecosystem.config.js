@@ -8,18 +8,24 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001
-      }
+      },
+      error_file: 'logs/backend-error.log',
+      out_file: 'logs/backend-out.log',
+      time: true
     },
     {
       name: 'rustbot-frontend',
       cwd: './frontend',
-      script: 'node_modules/vite/bin/vite.js',
+      script: 'npm',
+      args: 'run dev',
       watch: true,
       env: {
         NODE_ENV: 'production',
         PORT: 3000
       },
-      pre_start: 'npm run build'
+      error_file: 'logs/frontend-error.log',
+      out_file: 'logs/frontend-out.log',
+      time: true
     }
   ]
 }; 

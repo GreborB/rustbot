@@ -1,8 +1,20 @@
-const mongoose = require('mongoose');
+class User {
+    constructor(username, password) {
+        this.username = username;
+        this.password = password;
+    }
 
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true },
-    password: { type: String, required: true }
-});
+    static users = new Map();
 
-module.exports = mongoose.model('User', userSchema);
+    static create(username, password) {
+        const user = new User(username, password);
+        this.users.set(username, user);
+        return user;
+    }
+
+    static findByUsername(username) {
+        return this.users.get(username);
+    }
+}
+
+module.exports = User;
