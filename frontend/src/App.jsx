@@ -15,23 +15,25 @@ import {
   IconButton,
   Divider,
   useMediaQuery,
-  CircularProgress,
-  Button
+  CircularProgress
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
-  Storage as StorageIcon,
-  Power as PowerIcon,
   People as PeopleIcon,
-  Timer as TimerIcon,
-  ShoppingCart as ShoppingCartIcon
+  Settings as SettingsIcon,
+  Code as CodeIcon
 } from '@mui/icons-material';
 import { socketService } from './services/socket';
-import Login from './components/Login';
-import Dashboard from './components/Dashboard';
+import Login from './pages/Login';
+import DashboardLayout from './components/DashboardLayout';
+import Dashboard from './pages/Dashboard';
+import Players from './pages/Players';
+import Commands from './pages/Commands';
+import Settings from './pages/Settings';
 import './style.css';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 
 const drawerWidth = 240;
 
@@ -46,71 +48,10 @@ const LoadingSpinner = ({ message }) => (
   </Box>
 );
 
-const PrivateRoute = ({ children }) => {
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [socketConnected, setSocketConnected] = React.useState(false);
-  const navigate = useNavigate();
-
-  React.useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem('steamToken');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-
-        // Check if socket is connected
-        if (!socketService.connected) {
-          console.log('Socket not connected, attempting to connect...');
-          socketService.connect();
-          return;
-        }
-
-        setIsAuthenticated(true);
-        setSocketConnected(true);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        navigate('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    // Listen for socket connection changes
-    const handleConnect = () => {
-      setSocketConnected(true);
-      setIsAuthenticated(true);
-    };
-
-    const handleDisconnect = () => {
-      setSocketConnected(false);
-      setIsAuthenticated(false);
-      navigate('/login');
-    };
-
-    socketService.on('connect', handleConnect);
-    socketService.on('disconnect', handleDisconnect);
-
-    return () => {
-      socketService.off('connect', handleConnect);
-      socketService.off('disconnect', handleDisconnect);
-    };
-  }, [navigate]);
-
-  if (isLoading) {
-    return <LoadingSpinner message="Checking authentication..." />;
-  }
-
-  if (!isAuthenticated || !socketConnected) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
+function PrivateRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
 
 const App = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -118,18 +59,6 @@ const App = () => {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Handle unhandled promise rejections
-  React.useEffect(() => {
-    const handleUnhandledRejection = (event) => {
-      console.error('Unhandled Promise Rejection:', event.reason);
-      // Prevent the default browser handling
-      event.preventDefault();
-    };
-
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-  }, []);
 
   const theme = React.useMemo(
     () =>
@@ -179,13 +108,11 @@ const App = () => {
       }
     };
 
-    // Setup socket event listeners
     socketService.on('connect', handleConnect);
     socketService.on('disconnect', handleDisconnect);
     socketService.on('error', handleError);
     socketService.on('connect_error', handleError);
 
-    // Only connect if we have a token and we're not on the login page
     const token = localStorage.getItem('steamToken');
     if (token && location.pathname !== '/login') {
       console.log('Token found, connecting to socket');
@@ -211,29 +138,21 @@ const App = () => {
       <Toolbar />
       <Divider />
       <List>
-        <ListItem button component={Link} to="/">
+        <ListItem button component={Link} to="/dashboard">
           <ListItemIcon><DashboardIcon /></ListItemIcon>
           <ListItemText primary="Dashboard" />
-        </ListItem>
-        <ListItem button component={Link} to="/storage">
-          <ListItemIcon><StorageIcon /></ListItemIcon>
-          <ListItemText primary="Storage" />
-        </ListItem>
-        <ListItem button component={Link} to="/smart-switches">
-          <ListItemIcon><PowerIcon /></ListItemIcon>
-          <ListItemText primary="Smart Switches" />
         </ListItem>
         <ListItem button component={Link} to="/players">
           <ListItemIcon><PeopleIcon /></ListItemIcon>
           <ListItemText primary="Players" />
         </ListItem>
-        <ListItem button component={Link} to="/timers">
-          <ListItemIcon><TimerIcon /></ListItemIcon>
-          <ListItemText primary="Timers" />
+        <ListItem button component={Link} to="/commands">
+          <ListItemIcon><CodeIcon /></ListItemIcon>
+          <ListItemText primary="Commands" />
         </ListItem>
-        <ListItem button component={Link} to="/vending">
-          <ListItemIcon><ShoppingCartIcon /></ListItemIcon>
-          <ListItemText primary="Vending" />
+        <ListItem button component={Link} to="/settings">
+          <ListItemIcon><SettingsIcon /></ListItemIcon>
+          <ListItemText primary="Settings" />
         </ListItem>
       </List>
     </div>
@@ -242,123 +161,109 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex' }}>
-        <AppBar
-          position="fixed"
-          sx={{
-            width: { sm: `calc(100% - ${drawerWidth}px)` },
-            ml: { sm: `${drawerWidth}px` },
-          }}
-        >
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: 'none' } }}
+      <Router>
+        <Box sx={{ display: 'flex' }}>
+          <AppBar
+            position="fixed"
+            sx={{
+              width: { sm: `calc(100% - ${drawerWidth}px)` },
+              ml: { sm: `${drawerWidth}px` },
+            }}
+          >
+            <Toolbar>
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={handleDrawerToggle}
+                sx={{ mr: 2, display: { sm: 'none' } }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography variant="h6" noWrap component="div">
+                KinaBot Dashboard
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Box
+            component="nav"
+            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+          >
+            <Drawer
+              variant="temporary"
+              open={mobileOpen}
+              onClose={handleDrawerToggle}
+              ModalProps={{
+                keepMounted: true,
+              }}
+              sx={{
+                display: { xs: 'block', sm: 'none' },
+                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              }}
             >
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" noWrap component="div">
-              RustBot
-            </Typography>
-          </Toolbar>
-        </AppBar>
-        <Box
-          component="nav"
-          sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        >
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={handleDrawerToggle}
-            ModalProps={{
-              keepMounted: true, // Better open performance on mobile.
-            }}
+              {drawer}
+            </Drawer>
+            <Drawer
+              variant="permanent"
+              sx={{
+                display: { xs: 'none', sm: 'block' },
+                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              }}
+              open
+            >
+              {drawer}
+            </Drawer>
+          </Box>
+          <Box
+            component="main"
             sx={{
-              display: { xs: 'block', sm: 'none' },
-              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              flexGrow: 1,
+              p: 3,
+              width: { sm: `calc(100% - ${drawerWidth}px)` },
             }}
           >
-            {drawer}
-          </Drawer>
-          <Drawer
-            variant="permanent"
-            sx={{
-              display: { xs: 'none', sm: 'block' },
-              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-            }}
-            open
-          >
-            {drawer}
-          </Drawer>
+            <Toolbar />
+            <Suspense fallback={<LoadingSpinner message="Loading..." />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/players"
+                  element={
+                    <PrivateRoute>
+                      <Players />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/commands"
+                  element={
+                    <PrivateRoute>
+                      <Commands />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <PrivateRoute>
+                      <Settings />
+                    </PrivateRoute>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </Box>
         </Box>
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            p: 3,
-            width: { sm: `calc(100% - ${drawerWidth}px)` },
-          }}
-        >
-          <Toolbar />
-          <Suspense fallback={<LoadingSpinner message="Loading..." />}>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/storage"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/smart-switches"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/players"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/timers"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/vending"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </Box>
-      </Box>
+      </Router>
     </ThemeProvider>
   );
 };
