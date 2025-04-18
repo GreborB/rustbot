@@ -8,6 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
   const isDevelopment = mode === 'development';
+  const serverHost = process.env.VITE_SERVER_HOST || 'localhost';
+  const serverPort = process.env.VITE_SERVER_PORT || '3001';
+  const devPort = process.env.VITE_DEV_PORT || '3000';
 
   return {
     plugins: [
@@ -25,22 +28,22 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: 3000,
+      port: parseInt(devPort),
       strictPort: true,
       hmr: {
         overlay: true,
-        clientPort: 3000,
-        host: '34.75.5.243',
+        clientPort: parseInt(devPort),
+        host: serverHost,
         protocol: 'ws',
       },
       proxy: {
         '/api': {
-          target: 'http://34.75.5.243:3001',
+          target: `http://${serverHost}:${serverPort}`,
           changeOrigin: true,
           secure: false
         },
         '/socket.io': {
-          target: 'http://34.75.5.243:3001',
+          target: `http://${serverHost}:${serverPort}`,
           changeOrigin: true,
           secure: false,
           ws: true
