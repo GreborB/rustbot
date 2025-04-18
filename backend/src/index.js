@@ -14,13 +14,22 @@ const httpServer = createServer(app);
 // Configure CORS and Socket.IO
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-        ? process.env.CORS_ORIGIN 
+        ? process.env.CORS_ORIGIN || '*'
         : 'http://localhost:3000',
-    methods: ['GET', 'POST'],
-    credentials: true
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 };
 
-const io = new Server(httpServer, { cors: corsOptions });
+const io = new Server(httpServer, { 
+    cors: {
+        origin: corsOptions.origin,
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
 
 // Log all incoming requests
 app.use((req, res, next) => {
