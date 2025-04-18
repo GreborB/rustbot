@@ -33,7 +33,9 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve static files from the frontend build directory
-app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+app.use(express.static(path.join(__dirname, '../../frontend/dist'), {
+    index: false // Don't serve index.html for directory requests
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -45,7 +47,7 @@ app.get('/health', (req, res) => {
 setupSocketHandlers(io);
 
 // Catch-all route for client-side routing
-app.get('/:path*', (req, res) => {
+app.get('*', (req, res) => {
     console.log(`🌐 Serving index.html for ${req.path}`);
     res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });

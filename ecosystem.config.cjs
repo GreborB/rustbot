@@ -1,12 +1,13 @@
 module.exports = {
   apps: [
     {
-      name: 'rustbot-backend',
+      name: 'kinabot',
       cwd: './backend',
       script: 'src/index.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3001,
+        CORS_ORIGIN: '*'
       }
     }
   ]
