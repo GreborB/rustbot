@@ -1,4 +1,5 @@
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 import config from './config.js';
 import { logger } from './utils/logger.js';
 
