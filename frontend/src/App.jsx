@@ -163,105 +163,86 @@ const App = () => {
       <CssBaseline />
       <Router>
         <Box sx={{ display: 'flex' }}>
-          <AppBar
-            position="fixed"
-            sx={{
-              width: { sm: `calc(100% - ${drawerWidth}px)` },
-              ml: { sm: `${drawerWidth}px` },
-            }}
-          >
-            <Toolbar>
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2, display: { sm: 'none' } }}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="h6" noWrap component="div">
-                KinaBot Dashboard
-              </Typography>
-            </Toolbar>
-          </AppBar>
-          <Box
-            component="nav"
-            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-          >
-            <Drawer
-              variant="temporary"
-              open={mobileOpen}
-              onClose={handleDrawerToggle}
-              ModalProps={{
-                keepMounted: true,
-              }}
-              sx={{
-                display: { xs: 'block', sm: 'none' },
-                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-              }}
-            >
-              {drawer}
-            </Drawer>
-            <Drawer
-              variant="permanent"
-              sx={{
-                display: { xs: 'none', sm: 'block' },
-                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-              }}
-              open
-            >
-              {drawer}
-            </Drawer>
-          </Box>
-          <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              p: 3,
-              width: { sm: `calc(100% - ${drawerWidth}px)` },
-            }}
-          >
-            <Toolbar />
-            <Suspense fallback={<LoadingSpinner message="Loading..." />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <PrivateRoute>
-                      <Dashboard />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/players"
-                  element={
-                    <PrivateRoute>
-                      <Players />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/commands"
-                  element={
-                    <PrivateRoute>
-                      <Commands />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <PrivateRoute>
-                      <Settings />
-                    </PrivateRoute>
-                  }
-                />
-              </Routes>
-            </Suspense>
-          </Box>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route
+              path="/dashboard/*"
+              element={
+                <PrivateRoute>
+                  <Box sx={{ display: 'flex', width: '100%' }}>
+                    <AppBar
+                      position="fixed"
+                      sx={{
+                        width: { sm: `calc(100% - ${drawerWidth}px)` },
+                        ml: { sm: `${drawerWidth}px` },
+                      }}
+                    >
+                      <Toolbar>
+                        <IconButton
+                          color="inherit"
+                          aria-label="open drawer"
+                          edge="start"
+                          onClick={handleDrawerToggle}
+                          sx={{ mr: 2, display: { sm: 'none' } }}
+                        >
+                          <MenuIcon />
+                        </IconButton>
+                        <Typography variant="h6" noWrap component="div">
+                          KinaBot Dashboard
+                        </Typography>
+                      </Toolbar>
+                    </AppBar>
+                    <Box
+                      component="nav"
+                      sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+                    >
+                      <Drawer
+                        variant="temporary"
+                        open={mobileOpen}
+                        onClose={handleDrawerToggle}
+                        ModalProps={{
+                          keepMounted: true,
+                        }}
+                        sx={{
+                          display: { xs: 'block', sm: 'none' },
+                          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                        }}
+                      >
+                        {drawer}
+                      </Drawer>
+                      <Drawer
+                        variant="permanent"
+                        sx={{
+                          display: { xs: 'none', sm: 'block' },
+                          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                        }}
+                        open
+                      >
+                        {drawer}
+                      </Drawer>
+                    </Box>
+                    <Box
+                      component="main"
+                      sx={{
+                        flexGrow: 1,
+                        p: 3,
+                        width: { sm: `calc(100% - ${drawerWidth}px)` },
+                      }}
+                    >
+                      <Toolbar />
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/players" element={<Players />} />
+                        <Route path="/commands" element={<Commands />} />
+                        <Route path="/settings" element={<Settings />} />
+                      </Routes>
+                    </Box>
+                  </Box>
+                </PrivateRoute>
+              }
+            />
+          </Routes>
         </Box>
       </Router>
     </ThemeProvider>
