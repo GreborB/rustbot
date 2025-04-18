@@ -5,7 +5,11 @@
     "description": "Frontend for Rust server management bot",
     "scripts": {
       "dev": "vite",
-      "build": "vite build"
+      "build": "vite build",
+      "preview": "vite preview",
+      "start": "vite",
+      "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+      "typecheck": "tsc --noEmit"
     },
     "dependencies": {
       "@emotion/react": "^11.11.3",
