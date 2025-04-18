@@ -223,7 +223,7 @@ const Login = () => {
     return (
         <div className="login-container">
             <div className="login-box">
-                <h1>RustBot Dashboard</h1>
+                <h1>Kinabot Dashboard</h1>
                 
                 {!isAuthenticated ? (
                     <>
@@ -233,7 +233,7 @@ const Login = () => {
                             onClick={handleSteamLogin}
                         >
                             <img 
-                                src="/steam_login.png" 
+                                src="/steam_logo.png" 
                                 alt="Login with Steam" 
                                 width="180"
                             />
