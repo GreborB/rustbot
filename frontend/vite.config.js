@@ -13,6 +13,7 @@ export default defineConfig(({ command, mode }) => {
   const devPort = process.env.VITE_DEV_PORT || '3000';
 
   return {
+    base: '/',
     plugins: [
       react({
         // Enable Fast Refresh
@@ -55,10 +56,10 @@ export default defineConfig(({ command, mode }) => {
       cors: true,
     },
     build: {
-      sourcemap: isDevelopment,
       outDir: 'dist',
       assetsDir: 'assets',
       emptyOutDir: true,
+      sourcemap: false,
       minify: isDevelopment ? false : 'terser',
       terserOptions: {
         compress: {
@@ -73,14 +74,13 @@ export default defineConfig(({ command, mode }) => {
         },
         output: {
           manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-            'socket-vendor': ['socket.io-client'],
+            'react-vendor': ['react', 'react-dom'],
+            'mui-vendor': ['@mui/material', '@mui/icons-material'],
+            'socket-vendor': ['socket.io-client']
           }
         }
       }
     },
-    base: '/',
     optimizeDeps: {
       include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@mui/icons-material', 'socket.io-client'],
       exclude: [],

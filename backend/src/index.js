@@ -53,7 +53,7 @@ app.get('/health', (req, res) => {
 // Socket.IO setup
 setupSocketHandlers(io);
 
-// Catch-all route for client-side routing
+// Handle all routes by serving index.html
 app.get('*', (req, res) => {
     console.log(`🌐 Serving index.html for ${req.path}`);
     res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
