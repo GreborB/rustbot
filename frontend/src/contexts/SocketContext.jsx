@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
-import { logger } from '../utils/logger';
+import { loggerInstance as logger } from '../utils/logger';
 
 const SocketContext = createContext();
 

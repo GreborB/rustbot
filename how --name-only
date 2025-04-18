@@ -1,5 +1,0 @@
-[33mcommit b60dd6ef490fd519d347e333f85780434ea9b3af[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
-Author: GreborB <greborb9@gmail.com>
-Date:   Fri Apr 18 20:33:24 2025 +0200
-
-    Fix dependencies and exports, update configuration

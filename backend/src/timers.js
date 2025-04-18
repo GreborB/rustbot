@@ -2,120 +2,267 @@ import fs from 'fs';
 import path from 'path';
 import config from './config.js';
 import pkg from '@liamcottle/rustplus.js';
+import { loggerInstance as logger } from './utils/logger.js';
 const { RustPlus } = pkg;
 
-let activeTimers = new Map();
-let rustPlus = null;
+// Timer configuration
+const TIMER_CONFIG = {
+    CHECK_INTERVAL: 1000,
+    MAX_DURATION: 24 * 60 * 60, // 24 hours in seconds
+    MIN_DURATION: 1, // 1 second
+    MAX_TIMERS: 100,
+    STORAGE_FILE: 'timers.json'
+};
 
-// Initialize timers from file if it exists
-function loadTimers() {
-    try {
-        const data = fs.readFileSync(path.join(path.dirname(config.storage.path), 'timers.json'), 'utf8');
-        const timers = JSON.parse(data);
-        for (const timer of timers) {
-            timer.endTime = new Date(timer.endTime);
-            activeTimers.set(timer.id, timer);
+class TimerManager {
+    constructor() {
+        this.activeTimers = new Map();
+        this.rustPlus = null;
+        this.checkInterval = null;
+    }
+
+    /**
+     * Initialize timers from storage
+     * @returns {Promise<void>}
+     */
+    async initialize() {
+        try {
+            await this.loadTimers();
+            this.startTimerLoop();
+            logger.info('Timer manager initialized successfully');
+        } catch (error) {
+            logger.error('Failed to initialize timer manager:', error);
+            throw error;
         }
-    } catch (error) {
-        console.log('No existing timer data found, starting fresh');
     }
-}
 
-// Save timers to file
-function saveTimers() {
-    try {
-        const data = JSON.stringify(Array.from(activeTimers.values()));
-        fs.writeFileSync(path.join(path.dirname(config.storage.path), 'timers.json'), data);
-    } catch (error) {
-        console.error('Error saving timer data:', error);
+    /**
+     * Load timers from storage file
+     * @returns {Promise<void>}
+     */
+    async loadTimers() {
+        try {
+            const filePath = path.join(path.dirname(config.STORAGE_PATH), TIMER_CONFIG.STORAGE_FILE);
+            if (!fs.existsSync(filePath)) {
+                logger.info('No existing timer data found, starting fresh');
+                return;
+            }
+
+            const data = await fs.promises.readFile(filePath, 'utf8');
+            const timers = JSON.parse(data);
+            
+            for (const timer of timers) {
+                if (this.validateTimer(timer)) {
+                    timer.endTime = new Date(timer.endTime);
+                    this.activeTimers.set(timer.id, timer);
+                }
+            }
+            logger.info(`Loaded ${this.activeTimers.size} timers from storage`);
+        } catch (error) {
+            logger.error('Error loading timers:', error);
+            throw new Error('Failed to load timers from storage');
+        }
     }
-}
 
-// Initialize Rust+ connection
-function initializeRustPlus(ip, port, playerId, playerToken) {
-    rustPlus = new RustPlus(ip, port, playerId, playerToken);
-    return rustPlus.connect();
-}
-
-// Add a new timer
-function addTimer(name, duration, message, repeat = false) {
-    const id = Date.now().toString();
-    const endTime = new Date(Date.now() + duration * 1000);
-    
-    activeTimers.set(id, {
-        id,
-        name,
-        duration,
-        endTime,
-        message,
-        repeat,
-        isActive: true
-    });
-    
-    saveTimers();
-    return id;
-}
-
-// Remove a timer
-function removeTimer(timerId) {
-    if (activeTimers.delete(timerId)) {
-        saveTimers();
+    /**
+     * Save timers to storage file
+     * @returns {Promise<void>}
+     */
+    async saveTimers() {
+        try {
+            const filePath = path.join(path.dirname(config.STORAGE_PATH), TIMER_CONFIG.STORAGE_FILE);
+            const data = JSON.stringify(Array.from(this.activeTimers.values()), null, 2);
+            await fs.promises.writeFile(filePath, data);
+            logger.debug('Timers saved successfully');
+        } catch (error) {
+            logger.error('Error saving timers:', error);
+            throw new Error('Failed to save timers to storage');
+        }
     }
-}
 
-// Check and update timers
-async function checkTimers() {
-    if (!rustPlus) return;
+    /**
+     * Initialize Rust+ connection
+     * @param {Object} params - Connection parameters
+     * @returns {Promise<void>}
+     */
+    async initializeRustPlus({ ip, port, playerId, playerToken }) {
+        try {
+            this.rustPlus = new RustPlus(ip, port, playerId, playerToken);
+            await this.rustPlus.connect();
+            logger.info('RustPlus connection initialized successfully');
+        } catch (error) {
+            logger.error('Failed to initialize RustPlus connection:', error);
+            throw new Error('Failed to connect to Rust+ server');
+        }
+    }
 
-    const now = new Date();
-    const completedTimers = [];
+    /**
+     * Validate timer parameters
+     * @param {Object} timer - Timer object to validate
+     * @returns {boolean} - Whether the timer is valid
+     */
+    validateTimer(timer) {
+        const requiredFields = ['id', 'name', 'duration', 'endTime', 'message'];
+        const missingFields = requiredFields.filter(field => !timer[field]);
+        
+        if (missingFields.length > 0) {
+            logger.warn(`Invalid timer: missing fields ${missingFields.join(', ')}`);
+            return false;
+        }
 
-    for (const [id, timer] of activeTimers) {
-        if (timer.isActive && now >= timer.endTime) {
+        if (timer.duration < TIMER_CONFIG.MIN_DURATION || timer.duration > TIMER_CONFIG.MAX_DURATION) {
+            logger.warn(`Invalid timer duration: ${timer.duration}`);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Add a new timer
+     * @param {Object} params - Timer parameters
+     * @returns {string} - Timer ID
+     */
+    addTimer({ name, duration, message, repeat = false }) {
+        try {
+            if (this.activeTimers.size >= TIMER_CONFIG.MAX_TIMERS) {
+                throw new Error('Maximum number of timers reached');
+            }
+
+            const timer = {
+                id: Date.now().toString(),
+                name,
+                duration,
+                endTime: new Date(Date.now() + duration * 1000),
+                message,
+                repeat,
+                isActive: true
+            };
+
+            if (!this.validateTimer(timer)) {
+                throw new Error('Invalid timer parameters');
+            }
+
+            this.activeTimers.set(timer.id, timer);
+            this.saveTimers();
+            logger.info(`Timer "${name}" added successfully`);
+            return timer.id;
+        } catch (error) {
+            logger.error('Error adding timer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Remove a timer
+     * @param {string} timerId - ID of timer to remove
+     * @returns {boolean} - Whether the timer was removed
+     */
+    async removeTimer(timerId) {
+        try {
+            if (this.activeTimers.delete(timerId)) {
+                await this.saveTimers();
+                logger.info(`Timer ${timerId} removed successfully`);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            logger.error(`Error removing timer ${timerId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check and update timers
+     * @returns {Promise<void>}
+     */
+    async checkTimers() {
+        if (!this.rustPlus) {
+            logger.debug('RustPlus not initialized, skipping timer check');
+            return;
+        }
+
+        const now = new Date();
+        const completedTimers = [];
+        let needsSave = false;
+
+        for (const [id, timer] of this.activeTimers) {
+            if (!timer.isActive || now < timer.endTime) continue;
+
             try {
-                // Send message through Rust+ API
-                await rustPlus.sendTeamMessage(timer.message);
-                
+                await this.rustPlus.sendTeamMessage(timer.message);
+                logger.info(`Timer "${timer.name}" completed, message sent`);
+
                 if (timer.repeat) {
-                    // Reset timer for next cycle
                     timer.endTime = new Date(Date.now() + timer.duration * 1000);
+                    logger.debug(`Timer "${timer.name}" reset for next cycle`);
                 } else {
                     timer.isActive = false;
                     completedTimers.push(id);
                 }
+                needsSave = true;
             } catch (error) {
-                console.error(`Error sending timer message for ${timer.name}:`, error);
+                logger.error(`Error processing timer "${timer.name}":`, error);
             }
+        }
+
+        // Remove completed non-repeating timers
+        for (const id of completedTimers) {
+            this.activeTimers.delete(id);
+        }
+
+        if (needsSave) {
+            await this.saveTimers();
         }
     }
 
-    // Remove completed non-repeating timers
-    for (const id of completedTimers) {
-        activeTimers.delete(id);
+    /**
+     * Get all active timers
+     * @returns {Array} - Array of timer objects
+     */
+    getTimers() {
+        return Array.from(this.activeTimers.values())
+            .map(timer => ({
+                ...timer,
+                timeLeft: Math.max(0, timer.endTime - Date.now()) / 1000
+            }));
     }
 
-    if (completedTimers.length > 0) {
-        saveTimers();
+    /**
+     * Start timer checking loop
+     */
+    startTimerLoop() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+        }
+        this.checkInterval = setInterval(() => this.checkTimers(), TIMER_CONFIG.CHECK_INTERVAL);
+        logger.info('Timer check loop started');
+    }
+
+    /**
+     * Stop timer checking loop
+     */
+    stopTimerLoop() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+            logger.info('Timer check loop stopped');
+        }
+    }
+
+    /**
+     * Clean up resources
+     */
+    cleanup() {
+        this.stopTimerLoop();
+        if (this.rustPlus) {
+            this.rustPlus.disconnect();
+            this.rustPlus = null;
+        }
+        logger.info('Timer manager cleaned up');
     }
 }
 
-// Get all active timers
-function getTimers() {
-    return Array.from(activeTimers.values());
-}
-
-// Start timer checking loop
-function startTimerLoop() {
-    setInterval(checkTimers, 1000);
-}
-
-// Initialize timers on module load
-loadTimers();
-startTimerLoop();
-
-export default {
-    addTimer,
-    removeTimer,
-    getTimers,
-    initializeRustPlus
-}; 
+// Create and export a singleton instance
+const timerManager = new TimerManager();
+export default Object.freeze(timerManager); 
