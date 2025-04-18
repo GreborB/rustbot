@@ -33,9 +33,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve static files from the frontend build directory
-app.use(express.static(path.join(__dirname, '../../frontend/dist'), {
-    index: false // Don't serve index.html for directory requests
-}));
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -67,7 +65,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌐 WebUI available at http://localhost:${PORT}`);

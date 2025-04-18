@@ -80,7 +80,7 @@ export default defineConfig(({ command, mode }) => {
         }
       }
     },
-    base: './',
+    base: '/',
     optimizeDeps: {
       include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@mui/icons-material', 'socket.io-client'],
       exclude: [],
