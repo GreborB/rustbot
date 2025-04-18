@@ -19,7 +19,7 @@ module.exports = {
       name: 'kinabot-frontend',
       cwd: './frontend',
       script: 'node_modules/vite/bin/vite.js',
-      args: 'preview --port 3000 --host',
+      args: 'preview --port 3001 --host',
       env: {
         NODE_ENV: 'production'
       },
