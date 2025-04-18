@@ -96,6 +96,6 @@ export default defineConfig(({ command, mode }) => {
       __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
       __DEV__: mode === 'development',
     },
-    base: '/', // Set base path for production
+    base: './', // Use relative paths for assets
   };
 }); 
