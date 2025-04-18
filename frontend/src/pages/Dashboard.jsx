@@ -9,8 +9,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemAvatar,
-  Avatar,
   Divider,
   CircularProgress,
   Paper
@@ -29,6 +27,11 @@ export default function Dashboard() {
   const [playerCount, setPlayerCount] = useState(0);
   const [onlinePlayers, setOnlinePlayers] = useState([]);
   const [recentEvents, setRecentEvents] = useState([]);
+  const [commandStats, setCommandStats] = useState({
+    box: { uses: 0, lastUsed: null },
+    recycle: { uses: 0, lastUsed: null },
+    uptime: { uses: 0, lastUsed: null }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function Dashboard() {
       socket.emit('getPlayerCount');
       socket.emit('getOnlinePlayers');
       socket.emit('getRecentEvents');
+      socket.emit('getCommandStats');
 
       socket.on('serverInfo', (info) => {
         setServerInfo(info);
@@ -46,6 +50,7 @@ export default function Dashboard() {
       socket.on('playerCount', (count) => setPlayerCount(count));
       socket.on('onlinePlayers', (players) => setOnlinePlayers(players));
       socket.on('recentEvents', (events) => setRecentEvents(events));
+      socket.on('commandStats', (stats) => setCommandStats(stats));
     }
 
     return () => {
@@ -54,6 +59,7 @@ export default function Dashboard() {
         socket.off('playerCount');
         socket.off('onlinePlayers');
         socket.off('recentEvents');
+        socket.off('commandStats');
       }
     };
   }, [socket]);
@@ -117,7 +123,38 @@ export default function Dashboard() {
           </Card>
         </Grid>
 
-        {/* Online Players */}
+        {/* Command Stats */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Command Statistics
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText 
+                  primary="!box"
+                  secondary={`Used ${commandStats.box.uses} times | Last used: ${commandStats.box.lastUsed || 'Never'}`}
+                />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText 
+                  primary="!recycle"
+                  secondary={`Used ${commandStats.recycle.uses} times | Last used: ${commandStats.recycle.lastUsed || 'Never'}`}
+                />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText 
+                  primary="!uptime"
+                  secondary={`Used ${commandStats.uptime.uses} times | Last used: ${commandStats.uptime.lastUsed || 'Never'}`}
+                />
+              </ListItem>
+            </List>
+          </Paper>
+        </Grid>
+
+        {/* Online Players - Simplified */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -127,17 +164,12 @@ export default function Dashboard() {
               {onlinePlayers.map((player) => (
                 <React.Fragment key={player.id}>
                   <ListItem>
-                    <ListItemAvatar>
-                      <Avatar>
-                        <PersonIcon />
-                      </Avatar>
-                    </ListItemAvatar>
                     <ListItemText
                       primary={player.name}
                       secondary={`Online for ${player.onlineTime}`}
                     />
                   </ListItem>
-                  <Divider variant="inset" component="li" />
+                  <Divider />
                 </React.Fragment>
               ))}
               {onlinePlayers.length === 0 && (
@@ -150,7 +182,7 @@ export default function Dashboard() {
         </Grid>
 
         {/* Recent Events */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Recent Events
@@ -159,19 +191,12 @@ export default function Dashboard() {
               {recentEvents.map((event, index) => (
                 <React.Fragment key={index}>
                   <ListItem>
-                    <ListItemAvatar>
-                      <Avatar>
-                        <EventIcon />
-                      </Avatar>
-                    </ListItemAvatar>
                     <ListItemText
                       primary={event.message}
                       secondary={event.time}
                     />
                   </ListItem>
-                  {index < recentEvents.length - 1 && (
-                    <Divider variant="inset" component="li" />
-                  )}
+                  {index < recentEvents.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
               {recentEvents.length === 0 && (
