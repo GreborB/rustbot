@@ -30,15 +30,17 @@ export default defineConfig(({ command, mode }) => {
       hmr: {
         overlay: true,
         clientPort: 3000,
+        host: '34.75.5.243',
+        protocol: 'ws',
       },
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'http://34.75.5.243:3001',
           changeOrigin: true,
           secure: false
         },
         '/socket.io': {
-          target: 'http://localhost:3001',
+          target: 'http://34.75.5.243:3001',
           changeOrigin: true,
           secure: false,
           ws: true
@@ -47,6 +49,7 @@ export default defineConfig(({ command, mode }) => {
       watch: {
         usePolling: true,
       },
+      cors: true,
     },
     build: {
       sourcemap: isDevelopment,
