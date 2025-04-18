@@ -40,7 +40,7 @@ export default defineConfig(({ command, mode }) => {
                 babel: {
                     plugins: [
                         ['@babel/plugin-proposal-decorators', { legacy: true }],
-                        '@babel/plugin-proposal-class-properties',
+                        ['@babel/plugin-proposal-class-properties', { loose: true }],
                     ],
                 },
             }),
