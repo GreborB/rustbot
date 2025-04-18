@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ command, mode }) => {
   const isDevelopment = mode === 'development';
   const serverHost = process.env.VITE_SERVER_HOST || 'localhost';
-  const serverPort = process.env.VITE_SERVER_PORT || '3001';
+  const serverPort = process.env.VITE_SERVER_PORT || '3000';
   const devPort = process.env.VITE_DEV_PORT || '3000';
 
   return {

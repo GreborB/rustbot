@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 
 // Set API URL from environment variables with fallback
-const API_URL = process.env.VITE_API_URL || window.location.origin.replace(/:\d+$/, '') + ':3001';
+const API_URL = process.env.VITE_API_URL || window.location.origin;
 console.log('API URL:', API_URL);
 
 class SocketService {
