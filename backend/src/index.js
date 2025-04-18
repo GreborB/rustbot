@@ -13,9 +13,7 @@ const httpServer = createServer(app);
 
 // Configure CORS and Socket.IO
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? process.env.CORS_ORIGIN || '*'
-        : 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -46,8 +44,8 @@ const staticPath = path.join(__dirname, '../../frontend/dist');
 console.log(`📁 Static files path: ${staticPath}`);
 app.use(express.static(staticPath));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// API routes
+app.get('/api/health', (req, res) => {
     console.log('✅ Health check requested');
     res.json({ status: 'ok' });
 });
@@ -55,10 +53,14 @@ app.get('/health', (req, res) => {
 // Socket.IO setup
 setupSocketHandlers(io);
 
-// Handle all routes by serving index.html
+// Handle all routes by serving index.html for client-side routing
 app.get('*', (req, res) => {
-    console.log(`🌐 Serving index.html for ${req.path}`);
-    res.sendFile(path.join(staticPath, 'index.html'));
+    if (!req.path.startsWith('/api')) {
+        console.log(`🌐 Serving index.html for ${req.path}`);
+        res.sendFile(path.join(staticPath, 'index.html'));
+    } else {
+        res.status(404).json({ error: 'Not found' });
+    }
 });
 
 // Enhanced error handling middleware
@@ -72,7 +74,7 @@ app.use((err, req, res, next) => {
     });
     res.status(500).json({ 
         error: 'Something went wrong!',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+        message: 'Internal server error'
     });
 });
 
