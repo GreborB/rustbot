@@ -16,7 +16,12 @@ import {
   TextField,
   CircularProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -26,7 +31,15 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Recycle as RecycleIcon,
+  AccessTime as AccessTimeIcon,
+  Build as BuildIcon,
+  Search as SearchIcon,
+  Settings as SettingsIcon,
+  Security as SecurityIcon,
+  Notifications as NotificationsIcon,
+  Map as MapIcon
 } from '@mui/icons-material';
 import { socketService } from '../services/socket';
 import './Dashboard.css';
@@ -37,7 +50,10 @@ function Dashboard() {
     connected: false,
     name: '',
     players: 0,
-    maxPlayers: 0
+    maxPlayers: 0,
+    time: '',
+    upkeep: 0,
+    wipeTime: ''
   });
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -67,7 +83,10 @@ function Dashboard() {
           connected: true,
           name: data.serverInfo?.name || 'Unknown Server',
           players: data.serverInfo?.players || 0,
-          maxPlayers: data.serverInfo?.maxPlayers || 0
+          maxPlayers: data.serverInfo?.maxPlayers || 0,
+          time: data.serverInfo?.time || '',
+          upkeep: data.serverInfo?.upkeep || 0,
+          wipeTime: data.serverInfo?.wipeTime || ''
         });
         setError('');
         setIsLoading(false);
@@ -81,7 +100,6 @@ function Dashboard() {
       setError(data.error || 'Unknown pairing error');
       setIsLoading(false);
       
-      // Retry logic
       if (retryCount < maxRetries) {
         console.log(`Retrying pairing (${retryCount + 1}/${maxRetries})...`);
         setRetryCount(prev => prev + 1);
@@ -115,26 +133,34 @@ function Dashboard() {
       setIsLoading(false);
     };
 
-    // Make sure socket is connected before setting up listeners
+    const handleServerUpdate = (data) => {
+      if (!isMounted) return;
+      setServerInfo(prev => ({
+        ...prev,
+        time: data.time || prev.time,
+        upkeep: data.upkeep || prev.upkeep,
+        players: data.players || prev.players,
+        wipeTime: data.wipeTime || prev.wipeTime
+      }));
+    };
+
     if (!socketService.isConnected()) {
       console.log('Socket not connected, connecting...');
       socketService.connect();
     }
 
-    // Set up event listeners
     socketService.on('connectionStatus', handleConnectionStatus);
     socketService.on('serverPaired', handleServerPaired);
     socketService.on('pairingError', handlePairingError);
     socketService.on('rustConnected', handleRustConnected);
     socketService.on('rustDisconnected', handleRustDisconnected);
     socketService.on('rustError', handleRustError);
+    socketService.on('serverUpdate', handleServerUpdate);
 
-    // Start pairing process
     console.log('Starting pairing process...');
     setIsLoading(true);
     socketService.emit('startPairing');
 
-    // Cleanup function
     return () => {
       isMounted = false;
       if (retryTimeout) clearTimeout(retryTimeout);
@@ -145,6 +171,7 @@ function Dashboard() {
       socketService.off('rustConnected', handleRustConnected);
       socketService.off('rustDisconnected', handleRustDisconnected);
       socketService.off('rustError', handleRustError);
+      socketService.off('serverUpdate', handleServerUpdate);
     };
   }, []);
 
@@ -204,6 +231,54 @@ function Dashboard() {
       icon: <ShoppingCartIcon />,
       path: '/vending',
       description: 'Search and monitor vending machines'
+    },
+    {
+      title: 'Recycle',
+      icon: <RecycleIcon />,
+      path: '/recycle',
+      description: 'Monitor and manage recyclers'
+    },
+    {
+      title: 'Time',
+      icon: <AccessTimeIcon />,
+      path: '/time',
+      description: 'View server time and wipe information'
+    },
+    {
+      title: 'Upkeep',
+      icon: <BuildIcon />,
+      path: '/upkeep',
+      description: 'Monitor base upkeep and decay'
+    },
+    {
+      title: 'Box Search',
+      icon: <SearchIcon />,
+      path: '/boxsearch',
+      description: 'Search for items across all storage'
+    },
+    {
+      title: 'Settings',
+      icon: <SettingsIcon />,
+      path: '/settings',
+      description: 'Configure bot settings'
+    },
+    {
+      title: 'Security',
+      icon: <SecurityIcon />,
+      path: '/security',
+      description: 'Monitor security systems'
+    },
+    {
+      title: 'Notifications',
+      icon: <NotificationsIcon />,
+      path: '/notifications',
+      description: 'Configure alerts and notifications'
+    },
+    {
+      title: 'Map',
+      icon: <MapIcon />,
+      path: '/map',
+      description: 'View server map and markers'
     }
   ];
 
@@ -248,6 +323,15 @@ function Dashboard() {
                       <Typography color="text.secondary">
                         Players: {serverInfo.players}/{serverInfo.maxPlayers}
                       </Typography>
+                      <Typography color="text.secondary">
+                        Time: {serverInfo.time}
+                      </Typography>
+                      <Typography color="text.secondary">
+                        Upkeep: {serverInfo.upkeep}%
+                      </Typography>
+                      <Typography color="text.secondary">
+                        Wipe Time: {serverInfo.wipeTime}
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -255,35 +339,27 @@ function Dashboard() {
             )}
           </Paper>
         </Grid>
+
         <Grid item xs={12}>
-          <Grid container spacing={3}>
-            {menuItems.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.title}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      {item.icon}
-                      <Typography variant="h6" component="div" sx={{ ml: 1 }}>
-                        {item.title}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {item.description}
-                    </Typography>
-                  </CardContent>
-                  <CardActions>
-                    <Button
-                      size="small"
-                      onClick={() => navigate(item.path)}
-                      disabled={!serverInfo.connected}
-                    >
-                      Open
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" component="div" sx={{ mb: 2 }}>
+              Features
+            </Typography>
+            <List>
+              {menuItems.map((item) => (
+                <React.Fragment key={item.path}>
+                  <ListItem button onClick={() => navigate(item.path)}>
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText 
+                      primary={item.title}
+                      secondary={item.description}
+                    />
+                  </ListItem>
+                  <Divider />
+                </React.Fragment>
+              ))}
+            </List>
+          </Paper>
         </Grid>
       </Grid>
     </Container>

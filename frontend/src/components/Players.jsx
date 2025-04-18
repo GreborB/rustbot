@@ -1,34 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Container, Paper, Typography, TextField, Button, List, ListItem, ListItemText, Alert, Chip } from '@mui/material';
-import { io } from 'socket.io-client';
+import { useSocket } from '../contexts/SocketContext';
 
 function Players() {
     const [steamId, setSteamId] = useState('');
     const [playerInfo, setPlayerInfo] = useState(null);
     const [error, setError] = useState(null);
-    const [socket, setSocket] = useState(null);
+    const [players, setPlayers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { socket, isConnected } = useSocket();
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001');
-        setSocket(newSocket);
+        if (!socket) return;
 
-        newSocket.on('playerInfo', (data) => {
+        const handlePlayerList = (data) => {
+            setPlayers(data);
+            setLoading(false);
+        };
+
+        const handlePlayerInfo = (data) => {
             setPlayerInfo(data);
             setError(null);
-        });
+        };
 
-        newSocket.on('playerError', (data) => {
+        const handlePlayerError = (data) => {
             setError(data.error);
             setPlayerInfo(null);
-        });
+        };
 
-        return () => newSocket.close();
-    }, []);
+        socket.on('playerList', handlePlayerList);
+        socket.on('playerInfo', handlePlayerInfo);
+        socket.on('playerError', handlePlayerError);
+        socket.emit('getPlayers');
+
+        return () => {
+            socket.off('playerList', handlePlayerList);
+            socket.off('playerInfo', handlePlayerInfo);
+            socket.off('playerError', handlePlayerError);
+        };
+    }, [socket]);
 
     const getPlayerInfo = () => {
         if (!socket || !steamId) return;
         socket.emit('getPlayerInfo', { steamId });
     };
+
+    if (loading) {
+        return (
+            <Container maxWidth="lg">
+                <Box sx={{ my: 4, display: 'flex', justifyContent: 'center' }}>
+                    <Typography>Loading players...</Typography>
+                </Box>
+            </Container>
+        );
+    }
 
     return (
         <Container maxWidth="lg">

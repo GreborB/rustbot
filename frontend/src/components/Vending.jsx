@@ -17,14 +17,7 @@ import {
   DialogActions,
   Alert,
   Chip,
-  Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  InputAdornment
+  Grid
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -33,48 +26,51 @@ import {
   LocationOn as LocationIcon,
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
-import { io } from 'socket.io-client';
+import { useSocket } from '../contexts/SocketContext';
 
 function Vending() {
   const [vendingMachines, setVendingMachines] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
-  const [socket, setSocket] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [newMachine, setNewMachine] = useState({
     name: '',
     location: '',
     entityId: ''
   });
-  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+  const { socket, isConnected } = useSocket();
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001');
-    setSocket(newSocket);
+    if (!socket) return;
 
-    newSocket.on('vendingData', (data) => {
+    const handleVendingData = (data) => {
       setVendingMachines(data);
-    });
+      setLoading(false);
+    };
 
-    newSocket.on('vendingError', (error) => {
-      setStatus(error.message);
-      setTimeout(() => setStatus(''), 3000);
-    });
+    const handleVendingError = (error) => {
+      setError(error.message);
+      setLoading(false);
+    };
 
-    newSocket.on('vendingSearchResults', (data) => {
+    const handleSearchResults = (data) => {
       setResults(data);
       setError(null);
-    });
+    };
 
-    newSocket.emit('getVendingMachines');
+    socket.on('vendingData', handleVendingData);
+    socket.on('vendingError', handleVendingError);
+    socket.on('vendingSearchResults', handleSearchResults);
+    socket.emit('getVendingMachines');
 
     return () => {
-      newSocket.close();
-      socket.off('vendingData');
-      socket.off('vendingError');
+      socket.off('vendingData', handleVendingData);
+      socket.off('vendingError', handleVendingError);
+      socket.off('vendingSearchResults', handleSearchResults);
     };
-  }, []);
+  }, [socket]);
 
   const searchVending = () => {
     if (!socket || !searchTerm) return;
@@ -82,20 +78,26 @@ function Vending() {
   };
 
   const handleAddMachine = () => {
-    if (newMachine.name.trim() && newMachine.entityId.trim()) {
-      socket.emit('addVendingMachine', newMachine);
-      setNewMachine({ name: '', location: '', entityId: '' });
-      setOpenDialog(false);
-    }
+    if (!socket || !newMachine.name.trim() || !newMachine.entityId.trim()) return;
+    socket.emit('addVendingMachine', newMachine);
+    setNewMachine({ name: '', location: '', entityId: '' });
+    setOpenDialog(false);
   };
 
   const handleRemoveMachine = (machineId) => {
+    if (!socket) return;
     socket.emit('removeVendingMachine', { id: machineId });
   };
 
-  const formatPrice = (price) => {
-    return `${price} scrap`;
-  };
+  if (loading) {
+    return (
+      <Container maxWidth="lg">
+        <Box sx={{ my: 4, display: 'flex', justifyContent: 'center' }}>
+          <Typography>Loading vending machines...</Typography>
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg">
@@ -130,28 +132,16 @@ function Vending() {
           </Box>
 
           {results.length > 0 && (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Price</TableCell>
-                    <TableCell>Quantity</TableCell>
-                    <TableCell>Location</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {results.map((result, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{result.item}</TableCell>
-                      <TableCell>{result.price}</TableCell>
-                      <TableCell>{result.quantity}</TableCell>
-                      <TableCell>{result.location}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <List>
+              {results.map((result, index) => (
+                <ListItem key={index}>
+                  <ListItemText
+                    primary={result.item}
+                    secondary={`Price: ${result.price} | Quantity: ${result.quantity}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
           )}
         </Paper>
       </Box>
@@ -160,12 +150,6 @@ function Vending() {
         <Typography variant="h5" component="h1" gutterBottom>
           Vending Machines
         </Typography>
-
-        {status && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {status}
-          </Alert>
-        )}
 
         <List>
           {vendingMachines.map((machine) => (
@@ -182,11 +166,7 @@ function Vending() {
                     />
                   </Box>
                 }
-                secondary={
-                  <Typography variant="body2" color="text.secondary">
-                    Entity ID: {machine.entityId}
-                  </Typography>
-                }
+                secondary={`Entity ID: ${machine.entityId}`}
               />
               <ListItemSecondaryAction>
                 <IconButton

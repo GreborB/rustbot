@@ -1,56 +1,74 @@
 import express from 'express';
-import passport from 'passport';
-import { Strategy as SteamStrategy } from 'passport-steam';
-import config from '../config.js';
+import { validatePairingCode } from '../utils/rustplus.js';
+import { generateSessionToken } from '../utils/server.js';
 
 const router = express.Router();
 
-// Configure Steam Strategy
-passport.use(new SteamStrategy({
-    returnURL: `${config.BASE_URL}/api/auth/steam/return`,
-    realm: config.BASE_URL,
-    apiKey: config.STEAM_API_KEY
-}, (identifier, profile, done) => {
-    // Store the Steam profile in the session
-    return done(null, profile);
-}));
-
-// Serialize user for the session
-passport.serializeUser((user, done) => {
-    done(null, user);
-});
-
-// Deserialize user from the session
-passport.deserializeUser((user, done) => {
-    done(null, user);
-});
-
-// Steam authentication routes
-router.get('/steam', passport.authenticate('steam'));
-
-router.get('/steam/return', 
-    passport.authenticate('steam', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/');
+// Pair with server using Rust+ protocol
+router.post('/pair', async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Pairing code is required' 
+      });
     }
-);
+
+    // Validate pairing code
+    const isValid = await validatePairingCode(code);
+    if (!isValid) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Invalid pairing code' 
+      });
+    }
+
+    // Generate session token
+    const token = generateSessionToken();
+    
+    // Store session
+    req.session.user = {
+      token,
+      pairedAt: new Date()
+    };
+
+    res.json({
+      success: true,
+      user: {
+        token,
+        pairedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Pairing error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to pair with server' 
+    });
+  }
+});
 
 // Check authentication status
 router.get('/status', (req, res) => {
+  if (req.session.user) {
     res.json({ 
-        authenticated: req.isAuthenticated(),
-        user: req.user,
-        rustConnected: req.session.rustConnected || false,
-        status: req.session.rustStatus || 'disconnected'
+      success: true, 
+      user: req.session.user 
     });
+  } else {
+    res.status(401).json({ 
+      success: false, 
+      error: 'Not authenticated' 
+    });
+  }
 });
 
-// Logout route
-router.get('/logout', (req, res) => {
-    req.logout();
-    req.session.rustConnected = false;
-    req.session.rustStatus = 'disconnected';
-    res.redirect('/');
+// Logout
+router.post('/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
 });
 
 export default router; 

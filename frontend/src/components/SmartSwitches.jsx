@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Container, Paper, Typography, TextField, Switch, Alert } from '@mui/material';
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
 
 function SmartSwitches() {
     const [switchId, setSwitchId] = useState('');
     const [switchState, setSwitchState] = useState(false);
     const [error, setError] = useState(null);
     const [socket, setSocket] = useState(null);
+    const [switches, setSwitches] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001');
+        const API_URL = import.meta.env.VITE_API_URL;
+        const newSocket = io(API_URL);
         setSocket(newSocket);
 
         newSocket.on('switchState', (data) => {

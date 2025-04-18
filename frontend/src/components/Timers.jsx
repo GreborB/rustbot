@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Container, Paper, Typography, TextField, Button, List, ListItem, ListItemText, Alert, Chip } from '@mui/material';
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
 
 function Timers() {
     const [timerName, setTimerName] = useState('');
@@ -9,11 +9,11 @@ function Timers() {
     const [isRepeating, setIsRepeating] = useState(false);
     const [timers, setTimers] = useState([]);
     const [error, setError] = useState(null);
-    const [socket, setSocket] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3001');
-        setSocket(newSocket);
+        const API_URL = import.meta.env.VITE_API_URL;
+        const newSocket = io(API_URL);
 
         newSocket.on('timerList', (data) => {
             setTimers(data);
@@ -28,7 +28,9 @@ function Timers() {
     }, []);
 
     const addTimer = () => {
-        if (!socket || !timerName || !duration) return;
+        if (!timerName || !duration) return;
+        const API_URL = import.meta.env.VITE_API_URL;
+        const socket = io(API_URL);
         socket.emit('addTimer', {
             name: timerName,
             duration: parseInt(duration),
@@ -42,7 +44,8 @@ function Timers() {
     };
 
     const removeTimer = (timerId) => {
-        if (!socket) return;
+        const API_URL = import.meta.env.VITE_API_URL;
+        const socket = io(API_URL);
         socket.emit('removeTimer', { timerId });
     };
 
