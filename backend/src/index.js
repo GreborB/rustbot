@@ -22,6 +22,12 @@ const corsOptions = {
 
 const io = new Server(httpServer, { cors: corsOptions });
 
+// Log all incoming requests
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+    next();
+});
+
 // Basic middleware
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -31,6 +37,7 @@ app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+    console.log('✅ Health check requested');
     res.json({ status: 'ok' });
 });
 
@@ -38,17 +45,30 @@ app.get('/health', (req, res) => {
 setupSocketHandlers(io);
 
 // Catch-all route for client-side routing
-app.get('*', (req, res) => {
+app.get('/:path*', (req, res) => {
+    console.log(`🌐 Serving index.html for ${req.path}`);
     res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });
 
-// Error handling middleware
+// Enhanced error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something went wrong!' });
+    console.error('❌ Error:', {
+        message: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString()
+    });
+    res.status(500).json({ 
+        error: 'Something went wrong!',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
 });
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌐 WebUI available at http://localhost:${PORT}`);
+    console.log(`🔌 Socket.IO server ready for connections`);
+    console.log(`📁 Serving static files from ${path.join(__dirname, '../../frontend/dist')}`);
 }); 
