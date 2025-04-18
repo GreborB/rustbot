@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,20 +11,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORAGE_FILE = 'storage.json';
 const STORAGE_PATH = path.join(__dirname, '../../data', STORAGE_FILE);
 const SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
-// Mongoose Schema
-const StorageMonitorSchema = new mongoose.Schema({
-    name: { type: String, required: true, unique: true },
-    entityId: { type: Number, required: true },
-    items: [{
-        itemId: { type: Number, required: true },
-        quantity: { type: Number, required: true },
-        name: { type: String, required: true }
-    }],
-    lastUpdated: { type: Date, default: Date.now }
-});
-
-const StorageMonitor = mongoose.model('StorageMonitor', StorageMonitorSchema);
 
 // State management
 let storageBoxes = new Map();
@@ -48,7 +33,7 @@ async function loadStorage() {
         logger.info('Storage data loaded', { count: storageBoxes.size });
     } catch (error) {
         logger.error('Error loading storage data:', error);
-        throw new Error('Failed to load storage data');
+        throw error;
     }
 }
 
@@ -58,36 +43,34 @@ async function loadStorage() {
  */
 async function saveStorage() {
     try {
-        const data = JSON.stringify([...storageBoxes], null, 2);
-        await fs.promises.writeFile(STORAGE_PATH, data);
-        logger.debug('Storage data saved', { count: storageBoxes.size });
+        const data = JSON.stringify(Array.from(storageBoxes.entries()));
+        await fs.promises.writeFile(STORAGE_PATH, data, 'utf8');
+        logger.info('Storage data saved', { count: storageBoxes.size });
     } catch (error) {
         logger.error('Error saving storage data:', error);
-        throw new Error('Failed to save storage data');
+        throw error;
     }
 }
 
 /**
- * Start auto-saving storage data
+ * Start auto-save interval
  */
 function startAutoSave() {
     if (saveInterval) {
         clearInterval(saveInterval);
     }
-
     saveInterval = setInterval(async () => {
         try {
             await saveStorage();
         } catch (error) {
-            logger.error('Auto-save failed:', error);
+            logger.error('Error in auto-save:', error);
         }
     }, SAVE_INTERVAL);
-
     logger.info('Auto-save started', { interval: SAVE_INTERVAL });
 }
 
 /**
- * Stop auto-saving storage data
+ * Stop auto-save interval
  */
 function stopAutoSave() {
     if (saveInterval) {
@@ -107,137 +90,146 @@ function stopAutoSave() {
  */
 async function initializeRustPlus(ip, port, playerId, playerToken) {
     try {
+        if (rustPlus) {
+            await rustPlus.disconnect();
+        }
+
         rustPlus = new RustPlus(ip, port, playerId, playerToken);
         await rustPlus.connect();
         logger.info('Rust+ connection initialized');
     } catch (error) {
-        logger.error('Failed to initialize Rust+ connection:', error);
-        throw new Error('Failed to initialize Rust+ connection');
+        logger.error('Error initializing Rust+ connection:', error);
+        throw error;
     }
 }
 
 /**
- * Add a new storage box
- * @param {string} boxId - Box ID
+ * Add a storage box
+ * @param {number} boxId - Box ID
  * @param {string} name - Box name
  * @returns {Promise<void>}
  */
 async function addBox(boxId, name) {
     try {
-        if (!storageBoxes.has(boxId)) {
-            storageBoxes.set(boxId, {
-                name,
-                items: [],
-                lastUpdated: new Date().toISOString()
-            });
-            await saveStorage();
-            logger.info('Storage box added', { boxId, name });
+        if (storageBoxes.has(boxId)) {
+            throw new Error(`Box with ID ${boxId} already exists`);
         }
+
+        storageBoxes.set(boxId, {
+            name,
+            items: [],
+            lastUpdated: new Date()
+        });
+
+        await saveStorage();
+        logger.info('Box added', { boxId, name });
     } catch (error) {
-        logger.error('Error adding storage box:', error);
-        throw new Error('Failed to add storage box');
+        logger.error('Error adding box:', error);
+        throw error;
     }
 }
 
 /**
  * Remove a storage box
- * @param {string} boxId - Box ID
+ * @param {number} boxId - Box ID
  * @returns {Promise<void>}
  */
 async function removeBox(boxId) {
     try {
-        if (storageBoxes.has(boxId)) {
-            storageBoxes.delete(boxId);
-            await saveStorage();
-            logger.info('Storage box removed', { boxId });
+        if (!storageBoxes.has(boxId)) {
+            throw new Error(`Box with ID ${boxId} not found`);
         }
+
+        storageBoxes.delete(boxId);
+        await saveStorage();
+        logger.info('Box removed', { boxId });
     } catch (error) {
-        logger.error('Error removing storage box:', error);
-        throw new Error('Failed to remove storage box');
+        logger.error('Error removing box:', error);
+        throw error;
     }
 }
 
 /**
  * Update box contents
- * @param {string} boxId - Box ID
+ * @param {number} boxId - Box ID
  * @returns {Promise<void>}
  */
 async function updateBoxContents(boxId) {
     try {
-        const box = storageBoxes.get(boxId);
-        if (!box) {
-            throw new Error('Box not found');
-        }
-
         if (!rustPlus) {
             throw new Error('Rust+ connection not initialized');
         }
 
-        const response = await rustPlus.getEntityInfo(boxId);
-        if (!response || !response.entityInfo) {
-            throw new Error('Failed to get entity info');
+        if (!storageBoxes.has(boxId)) {
+            throw new Error(`Box with ID ${boxId} not found`);
         }
 
-        box.items = response.entityInfo.items.map(item => ({
+        const box = storageBoxes.get(boxId);
+        const response = await rustPlus.getEntityInfo(boxId);
+
+        if (!response || !response.entityInfo) {
+            throw new Error(`Failed to get entity info for box ${boxId}`);
+        }
+
+        const items = response.entityInfo.payload.items.map(item => ({
             itemId: item.itemId,
             quantity: item.quantity,
             name: item.name
         }));
-        box.lastUpdated = new Date().toISOString();
+
+        box.items = items;
+        box.lastUpdated = new Date();
+        storageBoxes.set(boxId, box);
 
         await saveStorage();
-        logger.debug('Box contents updated', { boxId });
+        logger.info('Box contents updated', { boxId, itemCount: items.length });
     } catch (error) {
         logger.error('Error updating box contents:', error);
-        throw new Error('Failed to update box contents');
+        throw error;
     }
 }
 
 /**
- * Search for items in all boxes
+ * Search for items by name
  * @param {string} itemName - Item name to search for
- * @returns {Array} - List of matching items
+ * @returns {Array} List of matching items
  */
 function searchItems(itemName) {
-    try {
-        const results = [];
-        const searchTerm = itemName.toLowerCase();
+    const results = [];
+    const searchTerm = itemName.toLowerCase();
 
-        for (const [boxId, box] of storageBoxes) {
-            const matchingItems = box.items.filter(item => 
-                item.name.toLowerCase().includes(searchTerm)
-            );
+    for (const [boxId, box] of storageBoxes.entries()) {
+        const matchingItems = box.items.filter(item => 
+            item.name.toLowerCase().includes(searchTerm)
+        );
 
-            if (matchingItems.length > 0) {
-                results.push({
-                    boxId,
-                    boxName: box.name,
-                    items: matchingItems
-                });
-            }
+        if (matchingItems.length > 0) {
+            results.push({
+                boxId,
+                boxName: box.name,
+                items: matchingItems
+            });
         }
-
-        logger.debug('Items searched', { itemName, results: results.length });
-        return results;
-    } catch (error) {
-        logger.error('Error searching items:', error);
-        throw new Error('Failed to search items');
     }
+
+    return results;
 }
 
 /**
  * Get all storage boxes
- * @returns {Array} - List of storage boxes
+ * @returns {Array} List of storage boxes
  */
 function getBoxes() {
     return Array.from(storageBoxes.entries()).map(([boxId, box]) => ({
         boxId,
-        ...box
+        name: box.name,
+        itemCount: box.items.length,
+        lastUpdated: box.lastUpdated
     }));
 }
 
 /**
- * Update storage monitor in database
+ * Update storage monitor
  * @param {string} name - Monitor name
  * @param {number} entityId - Entity ID
  * @param {Array} items - List of items
@@ -245,21 +237,21 @@ function getBoxes() {
  */
 async function updateStorageMonitor(name, entityId, items) {
     try {
-        const monitor = await StorageMonitor.findOneAndUpdate(
-            { name },
-            {
-                entityId,
-                items,
-                lastUpdated: new Date()
-            },
-            { upsert: true, new: true }
-        );
+        const box = storageBoxes.get(entityId) || {
+            name,
+            items: [],
+            lastUpdated: new Date()
+        };
 
-        logger.debug('Storage monitor updated', { name, entityId });
-        return monitor;
+        box.items = items;
+        box.lastUpdated = new Date();
+        storageBoxes.set(entityId, box);
+
+        await saveStorage();
+        logger.info('Storage monitor updated', { name, entityId, itemCount: items.length });
     } catch (error) {
         logger.error('Error updating storage monitor:', error);
-        throw new Error('Failed to update storage monitor');
+        throw error;
     }
 }
 
@@ -267,39 +259,39 @@ async function updateStorageMonitor(name, entityId, items) {
  * Search for items in a specific box
  * @param {string} boxName - Box name
  * @param {string} itemName - Item name
- * @returns {Promise<Array>} - List of matching items
+ * @returns {Array} List of matching items
  */
 async function searchBox(boxName, itemName) {
     try {
-        const box = Array.from(storageBoxes.values()).find(b => b.name === boxName);
+        const box = Array.from(storageBoxes.values()).find(b => 
+            b.name.toLowerCase() === boxName.toLowerCase()
+        );
+
         if (!box) {
-            throw new Error('Box not found');
+            throw new Error(`Box with name ${boxName} not found`);
         }
 
         const searchTerm = itemName.toLowerCase();
-        const matchingItems = box.items.filter(item => 
+        return box.items.filter(item => 
             item.name.toLowerCase().includes(searchTerm)
         );
-
-        logger.debug('Box searched', { boxName, itemName, results: matchingItems.length });
-        return matchingItems;
     } catch (error) {
         logger.error('Error searching box:', error);
-        throw new Error('Failed to search box');
+        throw error;
     }
 }
 
 /**
  * Search for items in all boxes
  * @param {string} itemName - Item name
- * @returns {Promise<Array>} - List of matching items
+ * @returns {Array} List of matching items
  */
 async function searchAllBoxes(itemName) {
     try {
         const results = [];
         const searchTerm = itemName.toLowerCase();
 
-        for (const [boxId, box] of storageBoxes) {
+        for (const [boxId, box] of storageBoxes.entries()) {
             const matchingItems = box.items.filter(item => 
                 item.name.toLowerCase().includes(searchTerm)
             );
@@ -313,44 +305,65 @@ async function searchAllBoxes(itemName) {
             }
         }
 
-        logger.debug('All boxes searched', { itemName, results: results.length });
         return results;
     } catch (error) {
         logger.error('Error searching all boxes:', error);
-        throw new Error('Failed to search all boxes');
+        throw error;
     }
 }
 
 /**
- * Setup storage socket handlers
+ * Set up storage socket handlers
  * @param {SocketIO.Server} io - Socket.IO server instance
  */
 function setupStorage(io) {
     io.on('connection', (socket) => {
-        logger.info('Client connected to storage', { socketId: socket.id });
+        logger.info('New storage socket connection');
+
+        socket.on('addBox', async (data) => {
+            try {
+                await addBox(data.boxId, data.name);
+                socket.emit('boxAdded', { boxId: data.boxId, name: data.name });
+            } catch (error) {
+                socket.emit('error', { message: error.message });
+            }
+        });
+
+        socket.on('removeBox', async (data) => {
+            try {
+                await removeBox(data.boxId);
+                socket.emit('boxRemoved', { boxId: data.boxId });
+            } catch (error) {
+                socket.emit('error', { message: error.message });
+            }
+        });
+
+        socket.on('updateBox', async (data) => {
+            try {
+                await updateBoxContents(data.boxId);
+                const box = storageBoxes.get(data.boxId);
+                socket.emit('boxUpdated', { boxId: data.boxId, box });
+            } catch (error) {
+                socket.emit('error', { message: error.message });
+            }
+        });
+
+        socket.on('searchItems', (data) => {
+            try {
+                const results = searchItems(data.itemName);
+                socket.emit('searchResults', results);
+            } catch (error) {
+                socket.emit('error', { message: error.message });
+            }
+        });
 
         socket.on('getBoxes', () => {
             try {
                 const boxes = getBoxes();
-                socket.emit('boxes', boxes);
+                socket.emit('boxesList', boxes);
             } catch (error) {
-                logger.error('Error getting boxes:', error);
-                socket.emit('error', 'Failed to get boxes');
+                socket.emit('error', { message: error.message });
             }
-        });
-
-        socket.on('searchItems', (itemName) => {
-            try {
-                const results = searchItems(itemName);
-                socket.emit('searchResults', results);
-            } catch (error) {
-                logger.error('Error searching items:', error);
-                socket.emit('error', 'Failed to search items');
-            }
-        });
-
-        socket.on('disconnect', () => {
-            logger.info('Client disconnected from storage', { socketId: socket.id });
         });
     });
 }
@@ -365,22 +378,25 @@ async function initialize() {
         startAutoSave();
         logger.info('Storage module initialized');
     } catch (error) {
-        logger.error('Failed to initialize storage module:', error);
+        logger.error('Error initializing storage module:', error);
         throw error;
     }
 }
 
 /**
- * Cleanup storage module
+ * Clean up storage module
  * @returns {Promise<void>}
  */
 async function cleanup() {
     try {
         stopAutoSave();
         await saveStorage();
+        if (rustPlus) {
+            await rustPlus.disconnect();
+        }
         logger.info('Storage module cleaned up');
     } catch (error) {
-        logger.error('Error during cleanup:', error);
+        logger.error('Error cleaning up storage module:', error);
         throw error;
     }
 }
@@ -388,6 +404,7 @@ async function cleanup() {
 export {
     initialize,
     cleanup,
+    setupStorage,
     initializeRustPlus,
     addBox,
     removeBox,
@@ -396,6 +413,5 @@ export {
     getBoxes,
     updateStorageMonitor,
     searchBox,
-    searchAllBoxes,
-    setupStorage
+    searchAllBoxes
 }; 
