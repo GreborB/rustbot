@@ -7,14 +7,31 @@ let connectionError = null;
 let pendingPairing = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAY = 5000; // 5 seconds
+
+// Command statistics tracking
+const commandStats = {
+    box: { uses: 0, lastUsed: null },
+    recycle: { uses: 0, lastUsed: null },
+    uptime: { uses: 0, lastUsed: null }
+};
+
+// Function to update command statistics
+const updateCommandStats = (command) => {
+    commandStats[command] = {
+        uses: (commandStats[command]?.uses || 0) + 1,
+        lastUsed: new Date().toISOString()
+    };
+};
 
 const cleanupRustClient = async () => {
     if (rustClient) {
         try {
-            console.log('Cleaning up Rust client...');
+            console.log('🔌 Cleaning up Rust client...');
             await rustClient.disconnect();
+            console.log('✅ Rust client cleaned up successfully');
         } catch (error) {
-            console.error('Error during cleanup:', error);
+            console.error('❌ Error during Rust client cleanup:', error);
         }
         rustClient = null;
     }
@@ -24,6 +41,61 @@ const cleanupRustClient = async () => {
     reconnectAttempts = 0;
 };
 
+const attemptReconnect = async (socket) => {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error('❌ Max reconnection attempts reached');
+        connectionError = 'Max reconnection attempts reached';
+        safeEmit(socket, 'connectionStatus', { status: 'disconnected', error: connectionError });
+        return;
+    }
+
+    console.log(`🔄 Attempting reconnection (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+    reconnectAttempts++;
+    
+    try {
+        await cleanupRustClient();
+        await initializeRustClient(socket);
+    } catch (error) {
+        console.error('❌ Reconnection failed:', error);
+        setTimeout(() => attemptReconnect(socket), RECONNECT_DELAY);
+    }
+};
+
+const initializeRustClient = async (socket) => {
+    try {
+        console.log('🚀 Initializing Rust client...');
+        rustClient = new RustPlus();
+        
+        // Set up event handlers
+        rustClient.on('connected', () => {
+            console.log('✅ Rust client connected successfully');
+            connectionStatus = 'connected';
+            connectionError = null;
+            reconnectAttempts = 0;
+            safeEmit(socket, 'connectionStatus', { status: connectionStatus });
+        });
+
+        rustClient.on('disconnected', () => {
+            console.log('⚠️ Rust client disconnected');
+            connectionStatus = 'disconnected';
+            safeEmit(socket, 'connectionStatus', { status: connectionStatus });
+            attemptReconnect(socket);
+        });
+
+        rustClient.on('error', (error) => {
+            console.error('❌ Rust client error:', error);
+            connectionError = error.message;
+            safeEmit(socket, 'connectionStatus', { status: 'error', error: connectionError });
+        });
+
+        // Connect to the Rust server
+        await rustClient.connect();
+    } catch (error) {
+        console.error('❌ Failed to initialize Rust client:', error);
+        throw error;
+    }
+};
+
 // Helper for consistent socket response with error handling
 const safeEmit = (socket, event, data) => {
     try {
@@ -31,7 +103,7 @@ const safeEmit = (socket, event, data) => {
             socket.emit(event, data);
         }
     } catch (error) {
-        console.error(`Error emitting ${event}:`, error);
+        console.error(`❌ Error emitting ${event}:`, error);
     }
 };
 
@@ -41,22 +113,20 @@ export function setupSocketHandlers(io) {
         try {
             const token = socket.handshake.auth.token;
             if (!token) {
-                console.warn('Socket connection attempt without token');
+                console.warn('⚠️ Socket connection attempt without token');
                 return next(new Error('Authentication error: No token provided'));
             }
             
-            // In a real application, you would verify the token here
-            // For now, we'll just check if it exists
-            console.log(`Socket authenticated with token ${token.substring(0, 5)}...`);
+            console.log(`🔑 Socket authenticated with token ${token.substring(0, 5)}...`);
             next();
         } catch (error) {
-            console.error('Authentication error:', error);
+            console.error('❌ Authentication error:', error);
             next(new Error('Authentication error: ' + (error.message || 'Unknown error')));
         }
     });
 
     io.on('connection', (socket) => {
-        console.log(`Client connected: ${socket.id}`);
+        console.log(`👤 Client connected: ${socket.id}`);
         
         // Track socket disconnections for cleanup
         let hasDisconnected = false;
@@ -67,45 +137,32 @@ export function setupSocketHandlers(io) {
             error: connectionError
         });
 
+        // Handle command statistics request
+        socket.on('getCommandStats', () => {
+            safeEmit(socket, 'commandStats', commandStats);
+        });
+
+        // Handle command usage
+        socket.on('commandUsed', (command) => {
+            if (commandStats[command]) {
+                updateCommandStats(command);
+                safeEmit(socket, 'commandStats', commandStats);
+            }
+        });
+
         // Handle automatic pairing
         socket.on('startPairing', async () => {
-            console.log('Start pairing request received');
+            console.log('🤝 Start pairing request received');
             
             try {
                 await cleanupRustClient();
-                
-                try {
-                    console.log('Initializing Rust client for pairing...');
-                    rustClient = new RustPlus();
-                    connectionStatus = 'waiting_for_pairing';
-                    safeEmit(socket, 'connectionStatus', { status: connectionStatus });
-                    
-                    // In a real app, this would use the Rust server details
-                    // For now, we'll simulate a successful pairing after a delay
-                    setTimeout(() => {
-                        if (rustClient) {
-                            connectionStatus = 'connected';
-                            safeEmit(socket, 'connectionStatus', { status: connectionStatus });
-                            safeEmit(socket, 'serverPaired', {
-                                success: true,
-                                serverInfo: {
-                                    name: 'Test Rust Server',
-                                    players: 42,
-                                    maxPlayers: 100
-                                }
-                            });
-                        }
-                    }, 2000);
-                    
-                } catch (error) {
-                    console.error('Error during pairing:', error);
-                    connectionStatus = 'disconnected';
-                    connectionError = error.message || 'Unknown error during pairing';
-                    safeEmit(socket, 'pairingError', { error: connectionError });
-                }
+                await initializeRustClient(socket);
             } catch (error) {
-                console.error('Error in startPairing:', error);
-                safeEmit(socket, 'pairingError', { error: error.message || 'Unknown error' });
+                console.error('❌ Error in startPairing:', error);
+                connectionStatus = 'error';
+                connectionError = error.message || 'Unknown error during pairing';
+                safeEmit(socket, 'pairingError', { error: connectionError });
+                attemptReconnect(socket);
             }
         });
 
@@ -113,34 +170,32 @@ export function setupSocketHandlers(io) {
         socket.on('getStorageContents', async (data) => {
             try {
                 if (!rustClient || connectionStatus !== 'connected') {
+                    console.warn('⚠️ Storage request while disconnected');
                     safeEmit(socket, 'error', { error: 'Not connected to Rust server' });
                     return;
                 }
                 
-                // In a real app, this would call rustClient.getEntityInfo()
-                // For now, we'll simulate a response
+                console.log(`📦 Fetching storage contents for entity ${data.entityId}`);
+                const contents = await rustClient.getEntityInfo(data.entityId);
                 safeEmit(socket, 'storageContents', {
                     success: true,
                     entityId: data.entityId,
-                    contents: [
-                        { itemId: 1, amount: 1000, name: 'Wood' },
-                        { itemId: 2, amount: 500, name: 'Stone' }
-                    ]
+                    contents: contents
                 });
             } catch (error) {
-                console.error('Error in getStorageContents:', error);
+                console.error('❌ Error in getStorageContents:', error);
                 safeEmit(socket, 'error', { error: error.message || 'Failed to get storage contents' });
             }
         });
 
         socket.on('disconnect', async () => {
-            console.log(`Client disconnected: ${socket.id}`);
+            console.log(`👋 Client disconnected: ${socket.id}`);
             hasDisconnected = true;
             
             // If this was the last client, clean up the Rust client
             const connectedClients = Object.keys(io.sockets.sockets).length;
             if (connectedClients === 0) {
-                console.log('No more clients connected, cleaning up Rust client');
+                console.log('🔌 No more clients connected, cleaning up Rust client');
                 await cleanupRustClient();
             }
         });
