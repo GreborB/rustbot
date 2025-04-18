@@ -199,9 +199,7 @@ const App = () => {
       console.log('No token found or on login page, not connecting');
     }
 
-    // Cleanup
     return () => {
-      console.log('App component unmounting, cleaning up socket listeners');
       socketService.off('connect', handleConnect);
       socketService.off('disconnect', handleDisconnect);
       socketService.off('error', handleError);
@@ -213,166 +211,123 @@ const App = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Storage', icon: <StorageIcon />, path: '/storage' },
-    { text: 'Smart Switches', icon: <PowerIcon />, path: '/switches' },
-    { text: 'Players', icon: <PeopleIcon />, path: '/players' },
-    { text: 'Timers', icon: <TimerIcon />, path: '/timers' },
-    { text: 'Vending', icon: <ShoppingCartIcon />, path: '/vending' }
-  ];
-
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          RustBot
-        </Typography>
-      </Toolbar>
+      <Toolbar />
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem 
-            button 
-            key={item.text} 
-            component={Link} 
-            to={item.path}
-            selected={location.pathname === item.path}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
+        <ListItem button component={Link} to="/">
+          <ListItemIcon><DashboardIcon /></ListItemIcon>
+          <ListItemText primary="Dashboard" />
+        </ListItem>
+        <ListItem button component={Link} to="/storage">
+          <ListItemIcon><StorageIcon /></ListItemIcon>
+          <ListItemText primary="Storage" />
+        </ListItem>
+        <ListItem button component={Link} to="/smart-switches">
+          <ListItemIcon><PowerIcon /></ListItemIcon>
+          <ListItemText primary="Smart Switches" />
+        </ListItem>
+        <ListItem button component={Link} to="/players">
+          <ListItemIcon><PeopleIcon /></ListItemIcon>
+          <ListItemText primary="Players" />
+        </ListItem>
+        <ListItem button component={Link} to="/timers">
+          <ListItemIcon><TimerIcon /></ListItemIcon>
+          <ListItemText primary="Timers" />
+        </ListItem>
+        <ListItem button component={Link} to="/vending">
+          <ListItemIcon><ShoppingCartIcon /></ListItemIcon>
+          <ListItemText primary="Vending" />
+        </ListItem>
       </List>
     </div>
   );
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <ErrorBoundary>
-        <Router>
-          <Box sx={{ display: 'flex' }}>
-            <AppBar
-              position="fixed"
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ display: 'flex' }}>
+          <AppBar
+            position="fixed"
+            sx={{
+              width: { sm: `calc(100% - ${drawerWidth}px)` },
+              ml: { sm: `${drawerWidth}px` },
+            }}
+          >
+            <Toolbar>
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={handleDrawerToggle}
+                sx={{ mr: 2, display: { sm: 'none' } }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography variant="h6" noWrap component="div">
+                RustBot
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Box
+            component="nav"
+            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+          >
+            <Drawer
+              variant="temporary"
+              open={mobileOpen}
+              onClose={handleDrawerToggle}
+              ModalProps={{
+                keepMounted: true, // Better open performance on mobile.
+              }}
               sx={{
-                width: { sm: `calc(100% - ${drawerWidth}px)` },
-                ml: { sm: `${drawerWidth}px` },
+                display: { xs: 'block', sm: 'none' },
+                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
               }}
             >
-              <Toolbar>
-                <IconButton
-                  color="inherit"
-                  aria-label="open drawer"
-                  edge="start"
-                  onClick={handleDrawerToggle}
-                  sx={{ mr: 2, display: { sm: 'none' } }}
-                >
-                  <MenuIcon />
-                </IconButton>
-                <Typography variant="h6" noWrap component="div">
-                  RustBot Dashboard
-                </Typography>
-              </Toolbar>
-            </AppBar>
-            <Box
-              component="nav"
-              sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-            >
-              <Drawer
-                variant="temporary"
-                open={mobileOpen}
-                onClose={handleDrawerToggle}
-                ModalProps={{
-                  keepMounted: true,
-                }}
-                sx={{
-                  display: { xs: 'block', sm: 'none' },
-                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                }}
-              >
-                {drawer}
-              </Drawer>
-              <Drawer
-                variant="permanent"
-                sx={{
-                  display: { xs: 'none', sm: 'block' },
-                  '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                }}
-                open
-              >
-                {drawer}
-              </Drawer>
-            </Box>
-            <Box
-              component="main"
+              {drawer}
+            </Drawer>
+            <Drawer
+              variant="permanent"
               sx={{
-                flexGrow: 1,
-                p: 3,
-                width: { sm: `calc(100% - ${drawerWidth}px)` },
+                display: { xs: 'none', sm: 'block' },
+                '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
               }}
+              open
             >
-              <Toolbar />
-              <Suspense fallback={<LoadingSpinner message="Loading..." />}>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route
-                    path="/"
-                    element={
-                      <PrivateRoute>
-                        <Dashboard />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/storage"
-                    element={
-                      <PrivateRoute>
-                        <div>Storage Page</div>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/switches"
-                    element={
-                      <PrivateRoute>
-                        <div>Switches Page</div>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/players"
-                    element={
-                      <PrivateRoute>
-                        <div>Players Page</div>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/timers"
-                    element={
-                      <PrivateRoute>
-                        <div>Timers Page</div>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/vending"
-                    element={
-                      <PrivateRoute>
-                        <div>Vending Page</div>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </Box>
+              {drawer}
+            </Drawer>
           </Box>
-        </Router>
-      </ErrorBoundary>
-    </ThemeProvider>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              p: 3,
+              width: { sm: `calc(100% - ${drawerWidth}px)` },
+            }}
+          >
+            <Toolbar />
+            <Suspense fallback={<LoadingSpinner message="Loading..." />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </Box>
+        </Box>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
-}
+};
 
 export default App;
