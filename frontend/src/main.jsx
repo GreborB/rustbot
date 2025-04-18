@@ -8,49 +8,112 @@ import { SocketProvider } from './contexts/SocketContext';
 import App from './App';
 import './style.css';
 
+// Theme configuration
 const theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#90caf9',
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#90caf9',
+            light: '#e3f2fd',
+            dark: '#42a5f5',
+        },
+        secondary: {
+            main: '#f48fb1',
+            light: '#f8bbd0',
+            dark: '#f06292',
+        },
+        background: {
+            default: '#121212',
+            paper: '#1e1e1e',
+        },
     },
-    secondary: {
-      main: '#f48fb1',
+    typography: {
+        fontFamily: [
+            '-apple-system',
+            'BlinkMacSystemFont',
+            '"Segoe UI"',
+            'Roboto',
+            '"Helvetica Neue"',
+            'Arial',
+            'sans-serif',
+        ].join(','),
     },
-  },
+    components: {
+        MuiButton: {
+            styleOverrides: {
+                root: {
+                    textTransform: 'none',
+                },
+            },
+        },
+    },
 });
 
-// Error handling for React 18
-const handleError = (error) => {
-  console.error('Global error handler:', error);
+// Global error handling
+const setupErrorHandling = () => {
+    const handleError = (error, errorInfo) => {
+        console.error('Application error:', {
+            error,
+            errorInfo,
+            timestamp: new Date().toISOString(),
+            version: window.APP_VERSION,
+        });
+    };
+
+    // React error boundary
+    window.addEventListener('error', (event) => {
+        handleError(event.error);
+        event.preventDefault();
+    });
+
+    // Unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+        handleError(event.reason);
+        event.preventDefault();
+    });
+
+    // Development mode error reporting
+    if (process.env.NODE_ENV === 'development') {
+        window.onerror = (message, source, lineno, colno, error) => {
+            handleError(error || message);
+            return false;
+        };
+    }
 };
 
-// Enable better error reporting in development
-if (process.env.NODE_ENV === 'development') {
-  window.onerror = (message, source, lineno, colno, error) => {
-    console.error('Global error:', { message, source, lineno, colno, error });
-    return false;
-  };
-}
+// Application version and build info
+const setupVersionInfo = () => {
+    window.APP_VERSION = process.env.VITE_APP_VERSION || '1.0.0';
+    window.BUILD_DATE = new Date().toISOString();
+    window.ENVIRONMENT = process.env.NODE_ENV || 'development';
+};
 
-// Set version in window for debugging
-window.APP_VERSION = process.env.VITE_APP_VERSION || '1.0.0';
-window.BUILD_DATE = new Date().toISOString();
+// Initialize application
+const initializeApp = () => {
+    setupErrorHandling();
+    setupVersionInfo();
 
-const container = document.getElementById('root');
-const root = createRoot(container);
+    const container = document.getElementById('root');
+    if (!container) {
+        throw new Error('Root element not found');
+    }
 
-root.render(
-  <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <SocketProvider>
-          <Router>
-            <App />
-          </Router>
-        </SocketProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </React.StrictMode>
-); 
+    const root = createRoot(container);
+    root.render(
+        <React.StrictMode>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
+                <AuthProvider>
+                    <SocketProvider>
+                        <Router>
+                            <App />
+                        </Router>
+                    </SocketProvider>
+                </AuthProvider>
+            </ThemeProvider>
+        </React.StrictMode>
+    );
+};
+
+// Start the application
+initializeApp(); 

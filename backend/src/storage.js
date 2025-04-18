@@ -1,220 +1,401 @@
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import config from './config.js';
 import { RustPlus } from '@liamcottle/rustplus.js';
+import { logger } from './utils/logger.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Constants
+const STORAGE_FILE = 'storage.json';
+const STORAGE_PATH = path.join(__dirname, '../../data', STORAGE_FILE);
+const SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Mongoose Schema
 const StorageMonitorSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  entityId: { type: Number, required: true },
-  items: [{
-    itemId: { type: Number, required: true },
-    quantity: { type: Number, required: true },
-    name: { type: String, required: true }
-  }],
-  lastUpdated: { type: Date, default: Date.now }
+    name: { type: String, required: true, unique: true },
+    entityId: { type: Number, required: true },
+    items: [{
+        itemId: { type: Number, required: true },
+        quantity: { type: Number, required: true },
+        name: { type: String, required: true }
+    }],
+    lastUpdated: { type: Date, default: Date.now }
 });
 
 const StorageMonitor = mongoose.model('StorageMonitor', StorageMonitorSchema);
 
+// State management
 let storageBoxes = new Map();
 let rustPlus = null;
+let saveInterval = null;
 
-// Initialize storage from file if it exists
-function loadStorage() {
+/**
+ * Load storage data from file
+ * @returns {Promise<void>}
+ */
+async function loadStorage() {
     try {
-        const data = fs.readFileSync(config.storage.path, 'utf8');
+        if (!fs.existsSync(STORAGE_PATH)) {
+            logger.info('No existing storage data found, starting fresh');
+            return;
+        }
+
+        const data = await fs.promises.readFile(STORAGE_PATH, 'utf8');
         storageBoxes = new Map(JSON.parse(data));
+        logger.info('Storage data loaded', { count: storageBoxes.size });
     } catch (error) {
-        console.log('No existing storage data found, starting fresh');
+        logger.error('Error loading storage data:', error);
+        throw new Error('Failed to load storage data');
     }
 }
 
-// Save storage to file
-function saveStorage() {
+/**
+ * Save storage data to file
+ * @returns {Promise<void>}
+ */
+async function saveStorage() {
     try {
-        const data = JSON.stringify([...storageBoxes]);
-        fs.writeFileSync(config.storage.path, data);
+        const data = JSON.stringify([...storageBoxes], null, 2);
+        await fs.promises.writeFile(STORAGE_PATH, data);
+        logger.debug('Storage data saved', { count: storageBoxes.size });
     } catch (error) {
-        console.error('Error saving storage data:', error);
+        logger.error('Error saving storage data:', error);
+        throw new Error('Failed to save storage data');
     }
 }
 
-// Initialize Rust+ connection
-function initializeRustPlus(ip, port, playerId, playerToken) {
-    rustPlus = new RustPlus(ip, port, playerId, playerToken);
-    return rustPlus.connect();
+/**
+ * Start auto-saving storage data
+ */
+function startAutoSave() {
+    if (saveInterval) {
+        clearInterval(saveInterval);
+    }
+
+    saveInterval = setInterval(async () => {
+        try {
+            await saveStorage();
+        } catch (error) {
+            logger.error('Auto-save failed:', error);
+        }
+    }, SAVE_INTERVAL);
+
+    logger.info('Auto-save started', { interval: SAVE_INTERVAL });
 }
 
-// Add a new storage box
-function addBox(boxId, name) {
-    if (!storageBoxes.has(boxId)) {
-        storageBoxes.set(boxId, {
-            id: boxId,
-            name: name,
-            items: new Map(),
-            lastUpdated: Date.now()
-        });
-        saveStorage();
+/**
+ * Stop auto-saving storage data
+ */
+function stopAutoSave() {
+    if (saveInterval) {
+        clearInterval(saveInterval);
+        saveInterval = null;
+        logger.info('Auto-save stopped');
     }
 }
 
-// Remove a storage box
-function removeBox(boxId) {
-    if (storageBoxes.delete(boxId)) {
-        saveStorage();
-    }
-}
-
-// Update box contents
-async function updateBoxContents(boxId) {
-    if (!rustPlus || !storageBoxes.has(boxId)) return;
-
+/**
+ * Initialize Rust+ connection
+ * @param {string} ip - Server IP
+ * @param {number} port - Server port
+ * @param {string} playerId - Player ID
+ * @param {string} playerToken - Player token
+ * @returns {Promise<void>}
+ */
+async function initializeRustPlus(ip, port, playerId, playerToken) {
     try {
-        const box = storageBoxes.get(boxId);
-        const contents = await rustPlus.getEntityInfo(boxId);
-        
-        if (contents && contents.items) {
-            box.items = new Map(contents.items.map(item => [item.name, item.quantity]));
-            box.lastUpdated = Date.now();
-            saveStorage();
+        rustPlus = new RustPlus(ip, port, playerId, playerToken);
+        await rustPlus.connect();
+        logger.info('Rust+ connection initialized');
+    } catch (error) {
+        logger.error('Failed to initialize Rust+ connection:', error);
+        throw new Error('Failed to initialize Rust+ connection');
+    }
+}
+
+/**
+ * Add a new storage box
+ * @param {string} boxId - Box ID
+ * @param {string} name - Box name
+ * @returns {Promise<void>}
+ */
+async function addBox(boxId, name) {
+    try {
+        if (!storageBoxes.has(boxId)) {
+            storageBoxes.set(boxId, {
+                name,
+                items: [],
+                lastUpdated: new Date().toISOString()
+            });
+            await saveStorage();
+            logger.info('Storage box added', { boxId, name });
         }
     } catch (error) {
-        console.error(`Error updating box ${boxId}:`, error);
+        logger.error('Error adding storage box:', error);
+        throw new Error('Failed to add storage box');
     }
 }
 
-// Search for items across all boxes
-function searchItems(itemName) {
-    const results = [];
-    const searchTerm = itemName.toLowerCase();
+/**
+ * Remove a storage box
+ * @param {string} boxId - Box ID
+ * @returns {Promise<void>}
+ */
+async function removeBox(boxId) {
+    try {
+        if (storageBoxes.has(boxId)) {
+            storageBoxes.delete(boxId);
+            await saveStorage();
+            logger.info('Storage box removed', { boxId });
+        }
+    } catch (error) {
+        logger.error('Error removing storage box:', error);
+        throw new Error('Failed to remove storage box');
+    }
+}
 
-    for (const [boxId, box] of storageBoxes) {
-        for (const [item, quantity] of box.items) {
-            if (item.toLowerCase().includes(searchTerm)) {
+/**
+ * Update box contents
+ * @param {string} boxId - Box ID
+ * @returns {Promise<void>}
+ */
+async function updateBoxContents(boxId) {
+    try {
+        const box = storageBoxes.get(boxId);
+        if (!box) {
+            throw new Error('Box not found');
+        }
+
+        if (!rustPlus) {
+            throw new Error('Rust+ connection not initialized');
+        }
+
+        const response = await rustPlus.getEntityInfo(boxId);
+        if (!response || !response.entityInfo) {
+            throw new Error('Failed to get entity info');
+        }
+
+        box.items = response.entityInfo.items.map(item => ({
+            itemId: item.itemId,
+            quantity: item.quantity,
+            name: item.name
+        }));
+        box.lastUpdated = new Date().toISOString();
+
+        await saveStorage();
+        logger.debug('Box contents updated', { boxId });
+    } catch (error) {
+        logger.error('Error updating box contents:', error);
+        throw new Error('Failed to update box contents');
+    }
+}
+
+/**
+ * Search for items in all boxes
+ * @param {string} itemName - Item name to search for
+ * @returns {Array} - List of matching items
+ */
+function searchItems(itemName) {
+    try {
+        const results = [];
+        const searchTerm = itemName.toLowerCase();
+
+        for (const [boxId, box] of storageBoxes) {
+            const matchingItems = box.items.filter(item => 
+                item.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (matchingItems.length > 0) {
                 results.push({
                     boxId,
                     boxName: box.name,
-                    item,
-                    quantity,
-                    lastUpdated: box.lastUpdated
+                    items: matchingItems
                 });
             }
         }
-    }
 
-    return results;
+        logger.debug('Items searched', { itemName, results: results.length });
+        return results;
+    } catch (error) {
+        logger.error('Error searching items:', error);
+        throw new Error('Failed to search items');
+    }
 }
 
-// Get all storage boxes
+/**
+ * Get all storage boxes
+ * @returns {Array} - List of storage boxes
+ */
 function getBoxes() {
-    return Array.from(storageBoxes.values()).map(box => ({
-        ...box,
-        items: [...box.items.entries()]
+    return Array.from(storageBoxes.entries()).map(([boxId, box]) => ({
+        boxId,
+        ...box
     }));
 }
 
-// Initialize storage on module load
-loadStorage();
-
+/**
+ * Update storage monitor in database
+ * @param {string} name - Monitor name
+ * @param {number} entityId - Entity ID
+ * @param {Array} items - List of items
+ * @returns {Promise<void>}
+ */
 async function updateStorageMonitor(name, entityId, items) {
-  try {
-    await StorageMonitor.findOneAndUpdate(
-      { name },
-      {
-        entityId,
-        items: items.map(item => ({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          name: item.name
-        })),
-        lastUpdated: new Date()
-      },
-      { upsert: true }
-    );
-  } catch (error) {
-    console.error('Error updating storage monitor:', error);
-    throw error;
-  }
+    try {
+        const monitor = await StorageMonitor.findOneAndUpdate(
+            { name },
+            {
+                entityId,
+                items,
+                lastUpdated: new Date()
+            },
+            { upsert: true, new: true }
+        );
+
+        logger.debug('Storage monitor updated', { name, entityId });
+        return monitor;
+    } catch (error) {
+        logger.error('Error updating storage monitor:', error);
+        throw new Error('Failed to update storage monitor');
+    }
 }
 
+/**
+ * Search for items in a specific box
+ * @param {string} boxName - Box name
+ * @param {string} itemName - Item name
+ * @returns {Promise<Array>} - List of matching items
+ */
 async function searchBox(boxName, itemName) {
-  try {
-    const box = await StorageMonitor.findOne({ name: boxName });
-    if (!box) {
-      return `Box "${boxName}" not found`;
+    try {
+        const box = Array.from(storageBoxes.values()).find(b => b.name === boxName);
+        if (!box) {
+            throw new Error('Box not found');
+        }
+
+        const searchTerm = itemName.toLowerCase();
+        const matchingItems = box.items.filter(item => 
+            item.name.toLowerCase().includes(searchTerm)
+        );
+
+        logger.debug('Box searched', { boxName, itemName, results: matchingItems.length });
+        return matchingItems;
+    } catch (error) {
+        logger.error('Error searching box:', error);
+        throw new Error('Failed to search box');
     }
-
-    const item = box.items.find(i => 
-      i.name.toLowerCase().includes(itemName.toLowerCase())
-    );
-
-    if (!item) {
-      return `Item "${itemName}" not found in box "${boxName}"`;
-    }
-
-    return `Box "${boxName}" contains ${item.quantity} ${item.name}`;
-  } catch (error) {
-    console.error('Error searching box:', error);
-    return 'Error searching box';
-  }
 }
 
+/**
+ * Search for items in all boxes
+ * @param {string} itemName - Item name
+ * @returns {Promise<Array>} - List of matching items
+ */
 async function searchAllBoxes(itemName) {
-  try {
-    const boxes = await StorageMonitor.find({
-      'items.name': { $regex: itemName, $options: 'i' }
-    });
+    try {
+        const results = [];
+        const searchTerm = itemName.toLowerCase();
 
-    if (boxes.length === 0) {
-      return `No boxes found containing "${itemName}"`;
+        for (const [boxId, box] of storageBoxes) {
+            const matchingItems = box.items.filter(item => 
+                item.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (matchingItems.length > 0) {
+                results.push({
+                    boxId,
+                    boxName: box.name,
+                    items: matchingItems
+                });
+            }
+        }
+
+        logger.debug('All boxes searched', { itemName, results: results.length });
+        return results;
+    } catch (error) {
+        logger.error('Error searching all boxes:', error);
+        throw new Error('Failed to search all boxes');
     }
-
-    const results = boxes.map(box => {
-      const item = box.items.find(i => 
-        i.name.toLowerCase().includes(itemName.toLowerCase())
-      );
-      return `${box.name}: ${item.quantity} ${item.name}`;
-    });
-
-    return results.join('\n');
-  } catch (error) {
-    console.error('Error searching all boxes:', error);
-    return 'Error searching boxes';
-  }
 }
 
+/**
+ * Setup storage socket handlers
+ * @param {SocketIO.Server} io - Socket.IO server instance
+ */
 function setupStorage(io) {
-  io.on('connection', (socket) => {
-    socket.on('updateStorage', async (data) => {
-      try {
-        await updateStorageMonitor(data.name, data.entityId, data.items);
-        socket.emit('storageUpdated', { success: true });
-      } catch (error) {
-        socket.emit('storageError', { message: error.message });
-      }
-    });
+    io.on('connection', (socket) => {
+        logger.info('Client connected to storage', { socketId: socket.id });
 
-    socket.on('getStorage', async (boxName) => {
-      try {
-        const box = await StorageMonitor.findOne({ name: boxName });
-        socket.emit('storageData', box);
-      } catch (error) {
-        socket.emit('storageError', { message: error.message });
-      }
+        socket.on('getBoxes', () => {
+            try {
+                const boxes = getBoxes();
+                socket.emit('boxes', boxes);
+            } catch (error) {
+                logger.error('Error getting boxes:', error);
+                socket.emit('error', 'Failed to get boxes');
+            }
+        });
+
+        socket.on('searchItems', (itemName) => {
+            try {
+                const results = searchItems(itemName);
+                socket.emit('searchResults', results);
+            } catch (error) {
+                logger.error('Error searching items:', error);
+                socket.emit('error', 'Failed to search items');
+            }
+        });
+
+        socket.on('disconnect', () => {
+            logger.info('Client disconnected from storage', { socketId: socket.id });
+        });
     });
-  });
 }
 
-export default {
-  setupStorage,
-  searchBox,
-  searchAllBoxes,
-  updateStorageMonitor,
-  addBox,
-  removeBox,
-  updateBoxContents,
-  searchItems,
-  getBoxes,
-  initializeRustPlus
+/**
+ * Initialize storage module
+ * @returns {Promise<void>}
+ */
+async function initialize() {
+    try {
+        await loadStorage();
+        startAutoSave();
+        logger.info('Storage module initialized');
+    } catch (error) {
+        logger.error('Failed to initialize storage module:', error);
+        throw error;
+    }
+}
+
+/**
+ * Cleanup storage module
+ * @returns {Promise<void>}
+ */
+async function cleanup() {
+    try {
+        stopAutoSave();
+        await saveStorage();
+        logger.info('Storage module cleaned up');
+    } catch (error) {
+        logger.error('Error during cleanup:', error);
+        throw error;
+    }
+}
+
+export {
+    initialize,
+    cleanup,
+    initializeRustPlus,
+    addBox,
+    removeBox,
+    updateBoxContents,
+    searchItems,
+    getBoxes,
+    updateStorageMonitor,
+    searchBox,
+    searchAllBoxes,
+    setupStorage
 }; 

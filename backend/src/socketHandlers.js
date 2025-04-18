@@ -1,125 +1,138 @@
-import pkg from '@liamcottle/rustplus.js';
-const { RustPlus } = pkg;
+/**
+ * Socket.IO handlers
+ * @module socketHandlers
+ */
 
-// Configuration
-const MAX_RECONNECT_ATTEMPTS = 3;
-const RECONNECT_DELAY = 5000;
+import { RustPlus } from '@liamcottle/rustplus.js';
+import { logger } from './utils/logger.js';
+import config from './config.js';
 
 // State management
-let rustClient = null;
-let connectionStatus = 'disconnected';
-let connectionError = null;
-let pendingPairing = null;
+let rustPlus = null;
+let isConnected = false;
 let reconnectAttempts = 0;
+let commandStats = new Map();
 
-// Command statistics service
-const commandStats = new Map();
-
-const updateCommandStats = (command) => {
-    const stats = commandStats.get(command) || { uses: 0, lastUsed: null };
-    stats.uses++;
-    stats.lastUsed = new Date().toISOString();
-    commandStats.set(command, stats);
-};
-
-// Rust client management
-const cleanupRustClient = async () => {
-    if (rustClient) {
-        try {
-            await rustClient.disconnect();
-            console.log('✅ Rust client cleaned up successfully');
-        } catch (error) {
-            console.error('❌ Error during Rust client cleanup:', error);
-        }
-        rustClient = null;
-    }
-    connectionStatus = 'disconnected';
-    connectionError = null;
-    pendingPairing = null;
-    reconnectAttempts = 0;
-};
-
-const initializeRustClient = async (socket, serverInfo) => {
+/**
+ * Initialize Rust+ client
+ * @param {string} ip - Server IP
+ * @param {number} port - Server port
+ * @param {string} playerId - Player ID
+ * @param {string} playerToken - Player token
+ * @returns {Promise<void>}
+ */
+async function initializeRustPlus(ip, port, playerId, playerToken) {
     try {
-        await cleanupRustClient();
+        if (rustPlus) {
+            logger.info('Disconnecting existing Rust+ connection');
+            await rustPlus.disconnect();
+        }
+
+        logger.info('Initializing new Rust+ connection', { ip, port });
+        rustPlus = new RustPlus(ip, port, playerId, playerToken);
         
-        rustClient = new RustPlus(serverInfo.ip, serverInfo.port, serverInfo.playerId, serverInfo.playerToken);
-        
-        rustClient.on('connected', () => {
-            console.log('✅ Connected to Rust server');
-            connectionStatus = 'connected';
-            connectionError = null;
+        rustPlus.on('connected', () => {
+            isConnected = true;
             reconnectAttempts = 0;
-            socket.emit('connectionStatus', { status: 'connected' });
+            logger.info('Connected to Rust server');
         });
 
-        rustClient.on('disconnected', () => {
-            console.log('❌ Disconnected from Rust server');
-            connectionStatus = 'disconnected';
-            socket.emit('connectionStatus', { status: 'disconnected' });
-            attemptReconnect(socket);
+        rustPlus.on('disconnected', () => {
+            isConnected = false;
+            logger.warn('Disconnected from Rust server');
         });
 
-        rustClient.on('error', (error) => {
-            console.error('❌ Rust client error:', error);
-            connectionError = error.message;
-            socket.emit('connectionStatus', { status: 'error', error: error.message });
+        rustPlus.on('error', (error) => {
+            logger.error('Rust+ error:', error);
         });
 
-        await rustClient.connect();
-        return true;
+        await rustPlus.connect();
+        logger.info('Rust+ connection established');
     } catch (error) {
-        console.error('❌ Failed to initialize Rust client:', error);
-        connectionError = error.message;
-        socket.emit('connectionStatus', { status: 'error', error: error.message });
-        return false;
+        logger.error('Failed to initialize Rust+ connection:', error);
+        throw new Error('Failed to connect to Rust server');
     }
-};
+}
 
-// Socket event handlers
-const handlePairing = async (socket, data) => {
+/**
+ * Update command statistics
+ * @param {string} command - Command name
+ * @param {boolean} success - Whether the command was successful
+ */
+function updateCommandStats(command, success) {
+    const stats = commandStats.get(command) || { total: 0, success: 0 };
+    stats.total++;
+    if (success) stats.success++;
+    commandStats.set(command, stats);
+    logger.debug('Command stats updated', { command, stats });
+}
+
+/**
+ * Get command statistics
+ * @returns {Object} - Command statistics
+ */
+function getCommandStats() {
+    return Object.fromEntries(commandStats);
+}
+
+/**
+ * Cleanup Rust+ client
+ * @returns {Promise<void>}
+ */
+async function cleanupRustPlus() {
     try {
-        pendingPairing = data;
-        const success = await initializeRustClient(socket, data);
-        if (success) {
-            socket.emit('pairingSuccess', { message: 'Successfully paired with server' });
-        } else {
-            socket.emit('pairingError', { error: connectionError });
+        if (rustPlus) {
+            await rustPlus.disconnect();
+            rustPlus = null;
+            isConnected = false;
+            logger.info('Rust+ connection cleaned up');
         }
     } catch (error) {
-        console.error('❌ Pairing error:', error);
-        socket.emit('pairingError', { error: error.message });
+        logger.error('Error cleaning up Rust+ connection:', error);
+        throw new Error('Failed to cleanup Rust+ connection');
     }
-};
+}
 
-const handleCommand = async (socket, data) => {
-    if (!rustClient || connectionStatus !== 'connected') {
-        socket.emit('commandError', { error: 'Not connected to server' });
-        return;
-    }
-
-    try {
-        updateCommandStats(data.command);
-        // Handle specific commands here
-        socket.emit('commandSuccess', { message: 'Command executed successfully' });
-    } catch (error) {
-        console.error('❌ Command error:', error);
-        socket.emit('commandError', { error: error.message });
-    }
-};
-
-// Socket setup
-export function setupSocketHandlers(io) {
+/**
+ * Setup socket handlers
+ * @param {SocketIO.Server} io - Socket.IO server instance
+ */
+function setupSocketHandlers(io) {
     io.on('connection', (socket) => {
-        console.log('👤 New client connected');
+        logger.info('Client connected', { socketId: socket.id });
 
-        socket.on('pair', (data) => handlePairing(socket, data));
-        socket.on('command', (data) => handleCommand(socket, data));
-        socket.on('disconnect', () => {
-            console.log('👤 Client disconnected');
-            if (socket.id === pendingPairing?.socketId) {
-                cleanupRustClient();
+        socket.on('initializeRustPlus', async (data) => {
+            try {
+                const { ip, port, playerId, playerToken } = data;
+                await initializeRustPlus(ip, port, playerId, playerToken);
+                socket.emit('rustPlusInitialized', { success: true });
+            } catch (error) {
+                logger.error('Error initializing Rust+:', error);
+                socket.emit('rustPlusError', { error: error.message });
             }
         });
+
+        socket.on('getCommandStats', () => {
+            try {
+                const stats = getCommandStats();
+                socket.emit('commandStats', stats);
+            } catch (error) {
+                logger.error('Error getting command stats:', error);
+                socket.emit('error', { error: error.message });
+            }
+        });
+
+        socket.on('disconnect', () => {
+            logger.info('Client disconnected', { socketId: socket.id });
+        });
     });
-} 
+
+    // Handle server shutdown
+    process.on('SIGINT', async () => {
+        logger.info('Server shutting down');
+        await cleanupRustPlus();
+        process.exit(0);
+    });
+}
+
+export { setupSocketHandlers, initializeRustPlus, cleanupRustPlus, updateCommandStats, getCommandStats }; 

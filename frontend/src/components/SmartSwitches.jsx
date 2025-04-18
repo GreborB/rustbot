@@ -1,36 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Paper, Typography, TextField, Switch, Alert } from '@mui/material';
-import io from 'socket.io-client';
+import { Box, Container, Paper, Typography, TextField, Switch, Alert, CircularProgress, List, ListItem, ListItemText } from '@mui/material';
+import { useSocket } from '../contexts/SocketContext';
 
 function SmartSwitches() {
     const [switchId, setSwitchId] = useState('');
     const [switchState, setSwitchState] = useState(false);
     const [error, setError] = useState(null);
-    const [socket, setSocket] = useState(null);
     const [switches, setSwitches] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { socket, isConnected } = useSocket();
 
     useEffect(() => {
-        const API_URL = import.meta.env.VITE_API_URL;
-        const newSocket = io(API_URL);
-        setSocket(newSocket);
+        if (!socket) return;
 
-        newSocket.on('switchState', (data) => {
+        const handleSwitchState = (data) => {
             setSwitchState(data.state);
             setError(null);
-        });
+        };
 
-        newSocket.on('switchError', (data) => {
+        const handleSwitchError = (data) => {
             setError(data.error);
-        });
+        };
 
-        return () => newSocket.close();
-    }, []);
+        const handleSwitchesList = (data) => {
+            setSwitches(data.switches);
+            setLoading(false);
+        };
+
+        socket.on('switchState', handleSwitchState);
+        socket.on('switchError', handleSwitchError);
+        socket.on('switchesList', handleSwitchesList);
+        socket.emit('getSwitches');
+
+        return () => {
+            socket.off('switchState', handleSwitchState);
+            socket.off('switchError', handleSwitchError);
+            socket.off('switchesList', handleSwitchesList);
+        };
+    }, [socket]);
 
     const toggleSwitch = () => {
         if (!socket || !switchId) return;
         socket.emit('controlSwitch', { id: switchId, state: !switchState });
     };
+
+    if (loading) {
+        return (
+            <Container maxWidth="lg">
+                <Box sx={{ my: 4, display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress />
+                </Box>
+            </Container>
+        );
+    }
 
     return (
         <Container maxWidth="lg">
@@ -54,15 +76,32 @@ function SmartSwitches() {
                             fullWidth
                             margin="normal"
                         />
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                            <Typography>Switch State:</Typography>
-                            <Switch
-                                checked={switchState}
-                                onChange={toggleSwitch}
-                                disabled={!switchId}
-                            />
-                        </Box>
+                        <Switch
+                            checked={switchState}
+                            onChange={toggleSwitch}
+                            disabled={!isConnected}
+                        />
                     </Box>
+
+                    <List>
+                        {switches.map((switchItem) => (
+                            <ListItem key={switchItem.id}>
+                                <ListItemText
+                                    primary={switchItem.name}
+                                    secondary={`ID: ${switchItem.id} | State: ${switchItem.state ? 'On' : 'Off'}`}
+                                />
+                                <Switch
+                                    checked={switchItem.state}
+                                    onChange={() => {
+                                        setSwitchId(switchItem.id);
+                                        setSwitchState(switchItem.state);
+                                        toggleSwitch();
+                                    }}
+                                    disabled={!isConnected}
+                                />
+                            </ListItem>
+                        ))}
+                    </List>
                 </Paper>
             </Box>
         </Container>

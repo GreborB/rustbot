@@ -1,136 +1,64 @@
-/* Remove the problematic slider styles */
-/* These were causing build errors and aren't needed for the application */
+:root {
+  --primary-color: #4a90e2;
+  --primary-hover: #357abd;
+  --background-dark: #1a1a1a;
+  --background-light: #2d2d2d;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #404040;
+  --success-color: #4caf50;
+  --warning-color: #ff9800;
+  --error-color: #f44336;
+}
 
-/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #f5f5f5;
-}
-
-/* App container */
-.app-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Main content */
-.main-content {
-    flex: 1;
-    padding: 20px;
-    margin-top: 64px; /* Height of the AppBar */
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-    .main-content {
-        padding: 10px;
-    }
-}
-
-h1 {
-    text-align: center;
-    margin-top: 20px;
-    color: #00d1b2;
-}
-
-.container {
-    max-width: 700px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #2a2a3d;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-}
-
-img.logo {
-    display: block;
-    margin: 0 auto 20px;
-    max-height: 80px;
-}
-
-input[type="text"],
-input[type="password"],
-button {
-    width: 100%;
-    padding: 10px;
-    margin-top: 10px;
-    border: none;
-    border-radius: 5px;
-}
-
-input[type="text"],
-input[type="password"] {
-    background-color: #333;
-    color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--background-dark);
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
 button {
-    background-color: #00d1b2;
-    color: #fff;
-    font-weight: bold;
-    cursor: pointer;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-button:hover {
-    background-color: #00b89c;
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
-.command-toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 12px 0;
-    padding: 10px;
-    background-color: #3a3a4d;
-    border-radius: 5px;
+a {
+  color: var(--primary-color);
+  text-decoration: none;
 }
 
-.command-toggle span {
-    font-size: 16px;
-    font-weight: 500;
+a:hover {
+  text-decoration: underline;
 }
 
-/* Toggle switch */
-.toggle-switch {
-    position: relative;
-    width: 50px;
-    height: 24px;
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
+::-webkit-scrollbar-track {
+  background: var(--background-dark);
 }
 
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 24px;
+::-webkit-scrollbar-thumb {
+  background: var(--background-light);
+  border-radius: 4px;
 }
 
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider {
-    background-color: #00d1b2;
-}
-
-input:checked + .slider:before {
-    transform: translateX(26px);
-}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color);
+} 

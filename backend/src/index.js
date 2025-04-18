@@ -1,87 +1,115 @@
-import 'dotenv/config';
+/**
+ * Main application entry point
+ * @module index
+ */
+
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import config from './config.js';
+import { logger } from './utils/logger.js';
 import { setupSocketHandlers } from './socketHandlers.js';
+import { setupStorage } from './storage.js';
+import { setupPairingHandlers } from './pairing.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Initialize Express app
 const app = express();
 const httpServer = createServer(app);
-
-// Configure CORS and Socket.IO
-const corsOptions = {
-    origin: process.env.CORS_ORIGIN || '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-};
-
-const io = new Server(httpServer, { 
+const io = new Server(httpServer, {
     cors: {
-        origin: corsOptions.origin,
-        methods: ['GET', 'POST'],
-        credentials: true
+        origin: config.CORS_ORIGIN,
+        methods: ['GET', 'POST']
     }
 });
 
-// Log all incoming requests
+// Middleware
+app.use(cors({
+    origin: config.CORS_ORIGIN,
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
+
+app.use(express.json({ limit: config.MAX_REQUEST_SIZE }));
+app.use(express.urlencoded({ extended: true }));
+
+// Logging middleware
 app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+    logger.info('Incoming request', {
+        method: req.method,
+        path: req.path,
+        ip: req.ip
+    });
     next();
 });
 
-// Basic middleware
-app.use(cors(corsOptions));
-app.use(express.json());
-
-// Serve static files from the frontend build directory
-const staticPath = path.join(__dirname, '../../frontend/dist');
-console.log(`📁 Static files path: ${staticPath}`);
-app.use(express.static(staticPath));
-
 // API routes
-app.get('/api/health', (req, res) => {
-    console.log('✅ Health check requested');
-    res.json({ status: 'ok' });
+app.get('/api/status', (req, res) => {
+    res.json({ status: 'ok', version: config.API_VERSION });
 });
 
-// Socket.IO setup
-setupSocketHandlers(io);
-
-// Handle all routes by serving index.html for client-side routing
-app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        console.log(`🌐 Serving index.html for ${req.path}`);
+// Serve static files in production
+if (config.NODE_ENV === 'production') {
+    const staticPath = path.join(__dirname, '../../frontend/dist');
+    app.use(express.static(staticPath));
+    app.get('*', (req, res) => {
         res.sendFile(path.join(staticPath, 'index.html'));
-    } else {
-        res.status(404).json({ error: 'Not found' });
-    }
-});
+    });
+}
 
-// Enhanced error handling middleware
+// Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('❌ Error:', {
-        message: err.message,
-        stack: err.stack,
-        path: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString()
-    });
-    res.status(500).json({ 
-        error: 'Something went wrong!',
-        message: 'Internal server error'
-    });
+    logger.error('Error handling request:', err);
+    res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌐 WebUI available at http://localhost:${PORT}`);
-    console.log(`🔌 Socket.IO server ready for connections`);
-    console.log(`📁 Serving static files from ${staticPath}`);
-}); 
+// Setup socket handlers
+setupSocketHandlers(io);
+setupStorage(io);
+setupPairingHandlers(io);
+
+// Start server
+const startServer = async () => {
+    try {
+        await new Promise((resolve) => {
+            httpServer.listen(config.PORT, () => {
+                logger.info('Server started', {
+                    port: config.PORT,
+                    environment: config.NODE_ENV
+                });
+                resolve();
+            });
+        });
+    } catch (error) {
+        logger.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+// Handle server shutdown
+const shutdownServer = async () => {
+    try {
+        logger.info('Shutting down server');
+        await new Promise((resolve) => {
+            httpServer.close(() => {
+                logger.info('Server closed');
+                resolve();
+            });
+        });
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during shutdown:', error);
+        process.exit(1);
+    }
+};
+
+// Handle process termination
+process.on('SIGINT', shutdownServer);
+process.on('SIGTERM', shutdownServer);
+
+// Start the server
+startServer(); 
