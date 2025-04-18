@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import config from './config.js';
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 
 let smartSwitches = new Map();
 let rustPlus = null;

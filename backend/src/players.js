@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
 import { logger } from './utils/logger.js';
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

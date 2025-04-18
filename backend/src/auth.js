@@ -5,7 +5,8 @@
 
 import { logger } from './utils/logger.js';
 import config from './config.js';
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 
 // State management
 let rustPlus = null;
