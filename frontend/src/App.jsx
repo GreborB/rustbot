@@ -49,6 +49,7 @@ const LoadingSpinner = ({ message }) => (
 const PrivateRoute = ({ children }) => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [socketConnected, setSocketConnected] = React.useState(false);
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -59,7 +60,16 @@ const PrivateRoute = ({ children }) => {
           navigate('/login');
           return;
         }
+
+        // Check if socket is connected
+        if (!socketService.connected) {
+          console.log('Socket not connected, attempting to connect...');
+          socketService.connect();
+          return;
+        }
+
         setIsAuthenticated(true);
+        setSocketConnected(true);
       } catch (error) {
         console.error('Auth check failed:', error);
         navigate('/login');
@@ -69,13 +79,37 @@ const PrivateRoute = ({ children }) => {
     };
 
     checkAuth();
+
+    // Listen for socket connection changes
+    const handleConnect = () => {
+      setSocketConnected(true);
+      setIsAuthenticated(true);
+    };
+
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+      setIsAuthenticated(false);
+      navigate('/login');
+    };
+
+    socketService.on('connect', handleConnect);
+    socketService.on('disconnect', handleDisconnect);
+
+    return () => {
+      socketService.off('connect', handleConnect);
+      socketService.off('disconnect', handleDisconnect);
+    };
   }, [navigate]);
 
   if (isLoading) {
     return <LoadingSpinner message="Checking authentication..." />;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated || !socketConnected) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 };
 
 const App = () => {

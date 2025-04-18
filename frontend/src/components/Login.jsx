@@ -148,7 +148,7 @@ const Login = () => {
                         break;
                     case 'rustConnected':
                         setStatus('Successfully paired with Rust server!');
-                        navigate('/dashboard');
+                        navigate('/');
                         break;
                     case 'pairingError':
                         setStatus(`Error: ${data.error}`);
