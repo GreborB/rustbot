@@ -7,14 +7,14 @@ module.exports = {
       args: 'start',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3000
       }
     },
     {
       name: 'frontend',
       cwd: './frontend',
-      script: 'node_modules/vite/bin/vite.js',
-      args: 'preview --port 3000 --host',
+      script: 'npm',
+      args: 'run preview -- --port 3001 --host',
       env: {
         NODE_ENV: 'production'
       }

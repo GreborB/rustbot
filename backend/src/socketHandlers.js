@@ -3,7 +3,8 @@
  * @module socketHandlers
  */
 
-import { RustPlus } from '@liamcottle/rustplus.js';
+import pkg from '@liamcottle/rustplus.js';
+const { RustPlus } = pkg;
 import { logger } from './utils/logger.js';
 import config from './config.js';
 
