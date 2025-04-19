@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
-import { loggerInstance as logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 import pkg from '@liamcottle/rustplus.js';
 const { RustPlus } = pkg;
 

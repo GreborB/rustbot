@@ -1,294 +1,126 @@
-/**
- * Error handling utilities
- * @module errorHandlers
- */
-
 import { logger } from './logger.js';
 import config from '../config.js';
 
 // Custom error classes
-class AppError extends Error {
-    constructor(message, statusCode, code, details = {}) {
+export class AppError extends Error {
+    constructor(message, statusCode = 500, code = 'INTERNAL_SERVER_ERROR') {
         super(message);
         this.statusCode = statusCode;
         this.code = code;
-        this.details = details;
-        this.timestamp = new Date().toISOString();
+        this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
         this.isOperational = true;
+        this.timestamp = new Date().toISOString();
         Error.captureStackTrace(this, this.constructor);
     }
 }
 
-class ValidationError extends AppError {
+export class ValidationError extends AppError {
     constructor(message, details = {}) {
-        super(message, 400, 'VALIDATION_ERROR', details);
+        super(message, 400, 'VALIDATION_ERROR');
+        this.details = details;
     }
 }
 
-class AuthenticationError extends AppError {
+export class AuthenticationError extends AppError {
     constructor(message, details = {}) {
-        super(message, 401, 'AUTHENTICATION_ERROR', details);
+        super(message, 401, 'AUTHENTICATION_ERROR');
+        this.details = details;
     }
 }
 
-class AuthorizationError extends AppError {
+export class AuthorizationError extends AppError {
     constructor(message, details = {}) {
-        super(message, 403, 'AUTHORIZATION_ERROR', details);
+        super(message, 403, 'AUTHORIZATION_ERROR');
+        this.details = details;
     }
 }
 
-class NotFoundError extends AppError {
+export class NotFoundError extends AppError {
     constructor(message, details = {}) {
-        super(message, 404, 'NOT_FOUND_ERROR', details);
+        super(message, 404, 'NOT_FOUND_ERROR');
+        this.details = details;
     }
 }
 
-class ConflictError extends AppError {
+export class ConflictError extends AppError {
     constructor(message, details = {}) {
-        super(message, 409, 'CONFLICT_ERROR', details);
+        super(message, 409, 'CONFLICT_ERROR');
+        this.details = details;
     }
 }
 
-class RateLimitError extends AppError {
+export class RateLimitError extends AppError {
     constructor(message, details = {}) {
-        super(message, 429, 'RATE_LIMIT_ERROR', details);
+        super(message, 429, 'RATE_LIMIT_ERROR');
+        this.details = details;
     }
 }
 
-class DatabaseError extends AppError {
+export class DatabaseError extends AppError {
     constructor(message, details = {}) {
-        super(message, 500, 'DATABASE_ERROR', details);
+        super(message, 500, 'DATABASE_ERROR');
+        this.details = details;
     }
 }
 
-class ServiceError extends AppError {
+export class ServiceError extends AppError {
     constructor(message, details = {}) {
-        super(message, 503, 'SERVICE_ERROR', details);
-    }
-}
-
-// Error tracking and monitoring
-class ErrorTracker {
-    constructor() {
-        this.errors = new Map();
-        this.stats = {
-            total: 0,
-            byType: {},
-            byCode: {},
-            lastHour: 0,
-            lastDay: 0
-        };
-        this.initialize();
-    }
-
-    initialize() {
-        // Set up periodic cleanup
-        setInterval(() => this.cleanup(), config.get('ERROR_CLEANUP_INTERVAL') || 3600000);
-        
-        // Set up periodic reporting
-        setInterval(() => this.report(), config.get('ERROR_REPORT_INTERVAL') || 86400000);
-    }
-
-    track(error) {
-        const now = Date.now();
-        const errorKey = `${error.code}-${now}`;
-        
-        this.errors.set(errorKey, {
-            error,
-            timestamp: now,
-            count: 1
-        });
-
-        // Update statistics
-        this.stats.total++;
-        this.stats.byType[error.constructor.name] = (this.stats.byType[error.constructor.name] || 0) + 1;
-        this.stats.byCode[error.code] = (this.stats.byCode[error.code] || 0) + 1;
-        this.stats.lastHour = this.getErrorCount(now - 3600000);
-        this.stats.lastDay = this.getErrorCount(now - 86400000);
-
-        // Check for error thresholds
-        this.checkThresholds(error);
-    }
-
-    getErrorCount(since) {
-        return Array.from(this.errors.values())
-            .filter(e => e.timestamp >= since)
-            .reduce((sum, e) => sum + e.count, 0);
-    }
-
-    checkThresholds(error) {
-        const thresholds = config.getCategory('error_thresholds');
-        
-        // Check hourly threshold
-        if (this.stats.lastHour >= (thresholds.HOURLY_THRESHOLD || 100)) {
-            logger.warn('Error hourly threshold exceeded', {
-                threshold: thresholds.HOURLY_THRESHOLD,
-                count: this.stats.lastHour
-            });
-        }
-
-        // Check daily threshold
-        if (this.stats.lastDay >= (thresholds.DAILY_THRESHOLD || 1000)) {
-            logger.error('Error daily threshold exceeded', {
-                threshold: thresholds.DAILY_THRESHOLD,
-                count: this.stats.lastDay
-            });
-        }
-
-        // Check specific error type threshold
-        const typeCount = this.stats.byType[error.constructor.name] || 0;
-        if (typeCount >= (thresholds[`${error.constructor.name}_THRESHOLD`] || 50)) {
-            logger.warn(`Error type threshold exceeded: ${error.constructor.name}`, {
-                threshold: thresholds[`${error.constructor.name}_THRESHOLD`],
-                count: typeCount
-            });
-        }
-    }
-
-    cleanup() {
-        const retentionPeriod = config.get('ERROR_RETENTION_PERIOD') || 604800000; // 7 days
-        const cutoff = Date.now() - retentionPeriod;
-        
-        for (const [key, error] of this.errors.entries()) {
-            if (error.timestamp < cutoff) {
-                this.errors.delete(key);
-            }
-        }
-    }
-
-    report() {
-        logger.info('Error statistics report', this.stats);
-    }
-
-    getStats() {
-        return { ...this.stats };
-    }
-
-    getErrors(since) {
-        return Array.from(this.errors.values())
-            .filter(e => !since || e.timestamp >= since)
-            .map(e => e.error);
+        super(message, 503, 'SERVICE_ERROR');
+        this.details = details;
     }
 }
 
 // Error handling middleware
-const errorHandler = (err, req, res, next) => {
-    const errorTracker = new ErrorTracker();
-    
-    // Track the error
-    errorTracker.track(err);
-
+export const errorHandler = (err, req, res, next) => {
     // Log the error
-    logger.error(err.message, err, {
-        path: req.path,
-        method: req.method,
-        ip: req.ip,
-        user: req.user?.id
+    logger.error('Error:', {
+        message: err.message,
+        stack: err.stack,
+        status: err.status || 500,
+        code: err.code
     });
 
-    // Determine status code
-    const statusCode = err.statusCode || 500;
-    const isOperational = err.isOperational || false;
-
-    // Prepare error response
-    const response = {
-        status: 'error',
-        message: isOperational ? err.message : 'An unexpected error occurred',
-        code: err.code || 'INTERNAL_SERVER_ERROR',
-        ...(config.get('NODE_ENV') === 'development' && {
-            stack: err.stack,
-            details: err.details
-        })
-    };
-
-    // Send response
-    res.status(statusCode).json(response);
-};
-
-// Error recovery strategies
-const recoveryStrategies = {
-    retry: async (operation, maxAttempts = 3, delay = 1000) => {
-        let attempts = 0;
-        while (attempts < maxAttempts) {
-            try {
-                return await operation();
-            } catch (error) {
-                attempts++;
-                if (attempts === maxAttempts) throw error;
-                await new Promise(resolve => setTimeout(resolve, delay * attempts));
-            }
-        }
-    },
-
-    fallback: async (operation, fallbackOperation) => {
-        try {
-            return await operation();
-        } catch (error) {
-            logger.warn('Operation failed, using fallback', { error });
-            return await fallbackOperation();
-        }
-    },
-
-    circuitBreaker: (operation, options = {}) => {
-        const {
-            failureThreshold = 5,
-            resetTimeout = 60000,
-            timeout = 5000
-        } = options;
-
-        let failures = 0;
-        let lastFailureTime = null;
-        let state = 'CLOSED';
-
-        return async (...args) => {
-            if (state === 'OPEN') {
-                if (Date.now() - lastFailureTime >= resetTimeout) {
-                    state = 'HALF-OPEN';
-                } else {
-                    throw new ServiceError('Circuit breaker is open');
-                }
-            }
-
-            try {
-                const result = await Promise.race([
-                    operation(...args),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Operation timeout')), timeout)
-                    )
-                ]);
-
-                if (state === 'HALF-OPEN') {
-                    state = 'CLOSED';
-                    failures = 0;
-                }
-
-                return result;
-            } catch (error) {
-                failures++;
-                lastFailureTime = Date.now();
-
-                if (failures >= failureThreshold) {
-                    state = 'OPEN';
-                }
-
-                throw error;
-            }
-        };
+    // Handle Sequelize validation errors
+    if (err.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Validation Error',
+            errors: err.errors.map(error => ({
+                field: error.path,
+                message: error.message
+            }))
+        });
     }
-};
 
-// Export
-export {
-    AppError,
-    ValidationError,
-    AuthenticationError,
-    AuthorizationError,
-    NotFoundError,
-    ConflictError,
-    RateLimitError,
-    DatabaseError,
-    ServiceError,
-    ErrorTracker,
-    errorHandler,
-    recoveryStrategies
+    // Handle Sequelize unique constraint errors
+    if (err.name === 'SequelizeUniqueConstraintError') {
+        const field = err.errors[0].path;
+        return res.status(400).json({
+            status: 'error',
+            message: `${field} already exists`
+        });
+    }
+
+    // Handle JWT errors
+    if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+            status: 'error',
+            message: 'Invalid token'
+        });
+    }
+
+    // Handle custom AppError
+    if (err.isOperational) {
+        return res.status(err.status).json({
+            status: 'error',
+            message: err.message,
+            code: err.code
+        });
+    }
+
+    // Handle all other errors
+    res.status(err.status || 500).json({
+        status: 'error',
+        message: err.message || 'Internal server error'
+    });
 }; 

@@ -1,11 +1,11 @@
 :root {
-  --primary-color: #4a90e2;
-  --primary-hover: #357abd;
-  --background-dark: #1a1a1a;
-  --background-light: #2d2d2d;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --border-color: #404040;
+  --primary-color: #1976d2;
+  --primary-hover: #1565c0;
+  --background-dark: #f5f5f5;
+  --background-light: #ffffff;
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --border-color: #e0e0e0;
   --success-color: #4caf50;
   --warning-color: #ff9800;
   --error-color: #f44336;
@@ -55,10 +55,31 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--background-light);
+  background: var(--border-color);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-color);
+  background: var(--text-secondary);
+}
+
+/* Material-UI overrides */
+.MuiPaper-root {
+  background-color: var(--background-light) !important;
+}
+
+.MuiTypography-root {
+  color: var(--text-primary) !important;
+}
+
+.MuiTextField-root {
+  background-color: var(--background-light) !important;
+}
+
+.MuiButton-contained {
+  background-color: var(--primary-color) !important;
+}
+
+.MuiButton-contained:hover {
+  background-color: var(--primary-hover) !important;
 } 

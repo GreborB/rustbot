@@ -3,11 +3,9 @@
  * @module socketHandlers
  */
 
-import pkg from '@liamcottle/rustplus.js';
-const { RustPlus } = pkg;
-import { loggerInstance as logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 import config from './config.js';
-import { verifyToken } from './auth.js';
+import { verifyToken } from './utils/auth.js';
 import { EventEmitter } from 'events';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { v4 as uuidv4 } from 'uuid';
@@ -50,7 +48,6 @@ const SOCKET_CONFIG = {
     ALLOW_CREDENTIALS: true,
     ALLOW_METHODS: ['GET', 'POST'],
     ALLOW_STATUS: [200, 401, 403, 404, 500],
-    // New configuration options
     MAX_CONCURRENT_COMMANDS: 5,
     COMMAND_QUEUE_SIZE: 100,
     COMMAND_RETRY_ATTEMPTS: 3,
@@ -196,7 +193,6 @@ const SOCKET_CONFIG = {
 class SocketManager extends EventEmitter {
     constructor() {
         super();
-        this.rustPlus = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
         this.commandStats = new Map();
@@ -248,142 +244,93 @@ class SocketManager extends EventEmitter {
      * Initialize cleanup intervals
      */
     initializeCleanupIntervals() {
-        // Command stats cleanup
-        this.cleanupIntervals.set('stats', setInterval(
-            () => this.cleanupCommandStats(),
-            SOCKET_CONFIG.STATS_CLEANUP_INTERVAL
-        ));
-
-        // Socket errors reset
-        this.cleanupIntervals.set('errors', setInterval(
-            () => this.resetSocketErrors(),
-            SOCKET_CONFIG.ERROR_RESET_INTERVAL
-        ));
-
-        // Socket pings
-        this.cleanupIntervals.set('pings', setInterval(
-            () => this.checkSocketPings(),
-            SOCKET_CONFIG.PING_INTERVAL
-        ));
-
-        // History cleanup
-        this.cleanupIntervals.set('history', setInterval(
-            () => this.cleanupSocketHistory(),
-            SOCKET_CONFIG.HISTORY_CLEANUP_INTERVAL
-        ));
-
-        // Events cleanup
-        this.cleanupIntervals.set('events', setInterval(
-            () => this.cleanupSocketEvents(),
-            SOCKET_CONFIG.EVENT_CLEANUP_INTERVAL
-        ));
-
-        // Logs cleanup
-        this.cleanupIntervals.set('logs', setInterval(
-            () => this.cleanupSocketLogs(),
-            SOCKET_CONFIG.LOG_CLEANUP_INTERVAL
-        ));
+        // Set up cleanup intervals for various data types
+        this.cleanupIntervals.set('stats', setInterval(() => this.cleanupCommandStats(), SOCKET_CONFIG.STATS_CLEANUP_INTERVAL));
+        this.cleanupIntervals.set('errors', setInterval(() => this.resetSocketErrors(), SOCKET_CONFIG.ERROR_RESET_INTERVAL));
+        this.cleanupIntervals.set('pings', setInterval(() => this.checkSocketPings(), SOCKET_CONFIG.PING_INTERVAL));
+        this.cleanupIntervals.set('history', setInterval(() => this.cleanupHistory(), SOCKET_CONFIG.HISTORY_CLEANUP_INTERVAL));
+        this.cleanupIntervals.set('events', setInterval(() => this.cleanupEvents(), SOCKET_CONFIG.EVENT_CLEANUP_INTERVAL));
+        this.cleanupIntervals.set('logs', setInterval(() => this.cleanupLogs(), SOCKET_CONFIG.LOG_CLEANUP_INTERVAL));
     }
 
     /**
      * Validate socket data
-     * @param {Object} data - Data to validate
-     * @param {Array<string>} requiredFields - Required fields
-     * @throws {Error} If validation fails
+     * @param {Object} data - The data to validate
+     * @param {Array} requiredFields - Array of required field names
+     * @returns {boolean} - Whether the data is valid
      */
     validateSocketData(data, requiredFields) {
-        if (!data) {
-            throw new Error('No data provided');
+        if (!data || typeof data !== 'object') {
+            return false;
         }
 
-        const missingFields = requiredFields.filter(field => !data[field]);
-        if (missingFields.length > 0) {
-            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-        }
+        return requiredFields.every(field => data.hasOwnProperty(field));
     }
 
     /**
      * Validate command data
-     * @param {string} command - Command name
-     * @param {Object} data - Command data
-     * @throws {Error} If validation fails
+     * @param {string} command - The command to validate
+     * @param {Object} data - The command data to validate
+     * @returns {boolean} - Whether the command data is valid
      */
     validateCommandData(command, data) {
-        switch (command) {
-            case 'initializeRustPlus':
-                this.validateSocketData(data, ['ip', 'port', 'playerId', 'playerToken']);
-                if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(data.ip)) {
-                    throw new Error('Invalid IP address format');
-                }
-                if (typeof data.port !== 'number' || data.port < 1 || data.port > 65535) {
-                    throw new Error('Invalid port number');
-                }
-                break;
-            case 'getCommandStats':
-                // No additional validation needed
-                break;
-            case 'executeBatch':
-                this.validateSocketData(data, ['commands']);
-                if (!Array.isArray(data.commands)) {
-                    throw new Error('Commands must be an array');
-                }
-                if (data.commands.length > SOCKET_CONFIG.MAX_BATCH_SIZE) {
-                    throw new Error(`Batch size exceeds maximum of ${SOCKET_CONFIG.MAX_BATCH_SIZE}`);
-                }
-                break;
-            default:
-                throw new Error(`Unknown command: ${command}`);
+        const commandValidators = {
+            'connect': ['ip', 'port', 'playerId', 'playerToken'],
+            'disconnect': [],
+            'command': ['type', 'data'],
+            'batch': ['commands'],
+            'group': ['name', 'action', 'sockets'],
+            'history': ['limit'],
+            'stats': ['type', 'limit'],
+            'event': ['type', 'data'],
+            'log': ['level', 'message'],
+            'setting': ['name', 'value'],
+            'firmware': ['version', 'data'],
+            'network': ['name', 'password'],
+            'location': ['name', 'description'],
+            'schedule': ['name', 'description', 'cron'],
+            'scene': ['name', 'description', 'actions'],
+            'automation': ['name', 'description', 'triggers', 'actions'],
+            'integration': ['name', 'description', 'settings'],
+            'backup': ['name', 'description'],
+            'restore': ['name', 'description', 'data'],
+            'migration': ['name', 'description', 'data'],
+            'sync': ['name', 'description', 'data'],
+            'update': ['name', 'description', 'data'],
+            'download': ['name', 'description', 'url'],
+            'upload': ['name', 'description', 'data'],
+            'export': ['name', 'description', 'data'],
+            'import': ['name', 'description', 'data']
+        };
+
+        if (!commandValidators[command]) {
+            return false;
         }
+
+        return this.validateSocketData(data, commandValidators[command]);
     }
 
     /**
-     * Check command rate limit
-     * @param {string} command - Command name
-     * @param {string} socketId - Socket ID
-     * @returns {Promise<boolean>} - Whether command is allowed
+     * Check rate limit for a command
+     * @param {string} command - The command to check
+     * @param {string} socketId - The socket ID
+     * @returns {Promise<boolean>} - Whether the command is allowed
      */
     async checkRateLimit(command, socketId) {
         try {
             const key = `${command}:${socketId}`;
-            const now = Date.now();
-            const limit = this.commandRateLimits.get(key) || [];
-            const socketCommands = this.socketCommands.get(socketId) || 0;
-
-            // Check socket command limit
-            if (socketCommands >= SOCKET_CONFIG.MAX_COMMANDS_PER_SOCKET) {
-                logger.warn('Socket command limit reached', { socketId });
-                return false;
-            }
-
-            // Remove old entries
-            const recentCommands = limit.filter(time => now - time < SOCKET_CONFIG.RATE_LIMIT_WINDOW);
-            this.commandRateLimits.set(key, recentCommands);
-
-            if (recentCommands.length >= SOCKET_CONFIG.COMMAND_RATE_LIMIT) {
-                return false;
-            }
-
-            // Check rate limiter
-            try {
-                await this.rateLimiter.consume(key);
-            } catch (error) {
-                logger.warn('Rate limit exceeded', { command, socketId });
-                return false;
-            }
-
-            recentCommands.push(now);
-            this.socketCommands.set(socketId, socketCommands + 1);
+            await this.rateLimiter.consume(key);
             return true;
         } catch (error) {
-            logger.error('Error checking rate limit:', error);
+            logger.warn('Rate limit exceeded', { command, socketId });
             return false;
         }
     }
 
     /**
-     * Check socket authentication
-     * @param {string} socketId - Socket ID
-     * @returns {boolean} - Whether socket is authenticated
+     * Check if a socket is authenticated
+     * @param {string} socketId - The socket ID
+     * @returns {boolean} - Whether the socket is authenticated
      */
     isSocketAuthenticated(socketId) {
         return this.authenticatedSockets.has(socketId);
@@ -391,50 +338,29 @@ class SocketManager extends EventEmitter {
 
     /**
      * Track socket error
-     * @param {string} socketId - Socket ID
-     * @returns {boolean} - Whether socket should be disconnected
+     * @param {string} socketId - The socket ID
      */
     trackSocketError(socketId) {
         const errors = this.socketErrors.get(socketId) || 0;
         this.socketErrors.set(socketId, errors + 1);
-
-        if (errors + 1 >= SOCKET_CONFIG.MAX_ERRORS_PER_SOCKET) {
-            logger.warn('Socket error limit reached', { socketId });
-            return true;
-        }
-
-        return false;
     }
 
     /**
-     * Reset socket error count
+     * Reset socket errors
      */
     resetSocketErrors() {
         this.socketErrors.clear();
-        logger.info('Socket errors reset');
     }
 
     /**
      * Track socket ping
-     * @param {string} socketId - Socket ID
-     * @returns {boolean} - Whether socket should be disconnected
+     * @param {string} socketId - The socket ID
      */
     trackSocketPing(socketId) {
-        const pings = this.socketPings.get(socketId) || { failures: 0, lastPing: Date.now() };
-        
-        if (Date.now() - pings.lastPing > SOCKET_CONFIG.PING_TIMEOUT) {
-            pings.failures++;
-            if (pings.failures >= SOCKET_CONFIG.MAX_PING_FAILURES) {
-                logger.warn('Socket ping failures limit reached', { socketId });
-                return true;
-            }
-        } else {
-            pings.failures = 0;
-        }
-
+        const pings = this.socketPings.get(socketId) || { count: 0, lastPing: Date.now() };
+        pings.count++;
         pings.lastPing = Date.now();
         this.socketPings.set(socketId, pings);
-        return false;
     }
 
     /**
@@ -444,157 +370,30 @@ class SocketManager extends EventEmitter {
         const now = Date.now();
         for (const [socketId, pings] of this.socketPings.entries()) {
             if (now - pings.lastPing > SOCKET_CONFIG.PING_TIMEOUT) {
-                pings.failures++;
-                if (pings.failures >= SOCKET_CONFIG.MAX_PING_FAILURES) {
-                    logger.warn('Socket ping failures limit reached', { socketId });
-                    const socket = this.io.sockets.sockets.get(socketId);
-                    if (socket) {
-                        socket.disconnect();
-                    }
-                }
+                logger.warn('Socket ping timeout', { socketId });
+                this.trackSocketError(socketId);
             }
         }
     }
 
     /**
-     * Initialize Rust+ client with reconnection
-     * @param {string} ip - Server IP
-     * @param {number} port - Server port
-     * @param {string} playerId - Player ID
-     * @param {string} playerToken - Player token
-     * @returns {Promise<void>}
+     * Execute a command
+     * @param {string} command - The command to execute
+     * @param {Object} data - The command data
+     * @returns {Promise<Object>} - The command result
      */
-    async initializeRustPlus(ip, port, playerId, playerToken) {
-        try {
-            if (this.rustPlus) {
-                logger.info('Disconnecting existing Rust+ connection');
-                await this.rustPlus.disconnect();
-                this.rustPlus = null;
-            }
-
-            logger.info('Initializing new Rust+ connection', { ip, port });
-            this.rustPlus = new RustPlus(ip, port, playerId, playerToken);
-            
-            this.rustPlus.on('connected', () => {
-                this.isConnected = true;
-                this.reconnectAttempts = 0;
-                if (this.reconnectTimeout) {
-                    clearTimeout(this.reconnectTimeout);
-                    this.reconnectTimeout = null;
-                }
-                logger.info('Connected to Rust server');
-                this.emit('rustConnected');
-            });
-
-            this.rustPlus.on('disconnected', () => {
-                this.isConnected = false;
-                logger.warn('Disconnected from Rust server');
-                this.emit('rustDisconnected');
-                this.attemptReconnect(ip, port, playerId, playerToken);
-            });
-
-            this.rustPlus.on('error', (error) => {
-                logger.error('Rust+ error:', error);
-                this.emit('rustError', error);
-            });
-
-            await this.rustPlus.connect();
-        } catch (error) {
-            logger.error('Failed to initialize Rust+ connection:', error);
-            throw error;
+    async executeCommand(command, data) {
+        if (!this.validateCommandData(command, data)) {
+            throw new Error('Invalid command data');
         }
+
+        // Add command execution logic here
+        return { success: true, command, data };
     }
 
     /**
-     * Attempt to reconnect to Rust server
-     * @param {string} ip - Server IP
-     * @param {number} port - Server port
-     * @param {string} playerId - Player ID
-     * @param {string} playerToken - Player token
-     */
-    attemptReconnect(ip, port, playerId, playerToken) {
-        if (this.reconnectAttempts >= SOCKET_CONFIG.MAX_RECONNECT_ATTEMPTS) {
-            logger.error('Maximum reconnection attempts reached');
-            return;
-        }
-
-        this.reconnectAttempts++;
-        logger.info(`Attempting to reconnect (${this.reconnectAttempts}/${SOCKET_CONFIG.MAX_RECONNECT_ATTEMPTS})`);
-
-        this.reconnectTimeout = setTimeout(async () => {
-            try {
-                await this.initializeRustPlus(ip, port, playerId, playerToken);
-            } catch (error) {
-                logger.error('Reconnection failed:', error);
-                this.attemptReconnect(ip, port, playerId, playerToken);
-            }
-        }, SOCKET_CONFIG.RECONNECT_DELAY);
-    }
-
-    /**
-     * Update command statistics
-     * @param {string} command - Command name
-     * @param {boolean} success - Whether command was successful
-     */
-    updateCommandStats(command, success) {
-        const stats = this.commandStats.get(command) || { total: 0, success: 0, error: 0 };
-        stats.total++;
-        if (success) {
-            stats.success++;
-        } else {
-            stats.error++;
-        }
-        this.commandStats.set(command, stats);
-    }
-
-    /**
-     * Clean up command statistics
-     */
-    cleanupCommandStats() {
-        const now = Date.now();
-        for (const [command, stats] of this.commandStats.entries()) {
-            if (now - stats.lastUpdated > SOCKET_CONFIG.STATS_CLEANUP_INTERVAL) {
-                this.commandStats.delete(command);
-            }
-        }
-    }
-
-    /**
-     * Get command statistics
-     * @returns {Object} Command statistics
-     */
-    getCommandStats() {
-        const stats = {};
-        for (const [command, data] of this.commandStats.entries()) {
-            stats[command] = {
-                total: data.total,
-                success: data.success,
-                error: data.error,
-                successRate: data.total > 0 ? (data.success / data.total) * 100 : 0
-            };
-        }
-        return stats;
-    }
-
-    /**
-     * Clean up Rust+ resources
-     */
-    async cleanupRustPlus() {
-        if (this.rustPlus) {
-            try {
-                await this.rustPlus.disconnect();
-                this.rustPlus = null;
-                this.isConnected = false;
-                logger.info('Rust+ connection cleaned up');
-            } catch (error) {
-                logger.error('Error cleaning up Rust+ connection:', error);
-            }
-        }
-    }
-
-    /**
-     * Set up socket handlers
-     * @param {SocketIO.Server} io - Socket.IO server instance
+     * Setup socket handlers
+     * @param {Object} io - Socket.IO instance
      */
     setupSocketHandlers(io) {
         this.io = io;
@@ -602,209 +401,103 @@ class SocketManager extends EventEmitter {
         io.on('connection', (socket) => {
             logger.info('New socket connection', { socketId: socket.id });
 
-            // Initialize socket metadata
-            this.socketMetadata.set(socket.id, {
-                connectedAt: Date.now(),
-                lastSeen: Date.now(),
-                status: 'connected',
-                errors: 0,
-                commands: 0
-            });
+            // Authentication timeout
+            const authTimeout = setTimeout(() => {
+                if (!this.isSocketAuthenticated(socket.id)) {
+                    logger.warn('Authentication timeout', { socketId: socket.id });
+                    socket.disconnect();
+                }
+            }, SOCKET_CONFIG.AUTH_TIMEOUT);
 
-            // Handle authentication
-            socket.on('authenticate', async (data) => {
+            // Authentication handler
+            socket.on('authenticate', async (token) => {
                 try {
-                    this.validateSocketData(data, ['token']);
-                    const isValid = await verifyToken(data.token);
-                    if (isValid) {
-                        this.authenticatedSockets.add(socket.id);
-                        socket.emit('authenticated');
-                        logger.info('Socket authenticated', { socketId: socket.id });
-                    } else {
-                        socket.emit('error', { message: 'Authentication failed' });
-                        socket.disconnect();
-                    }
+                    const decoded = await verifyToken(token);
+                    this.authenticatedSockets.add(socket.id);
+                    clearTimeout(authTimeout);
+                    logger.info('Socket authenticated', { socketId: socket.id, userId: decoded.userId });
+                    socket.emit('authenticated');
                 } catch (error) {
-                    logger.error('Authentication error:', error);
-                    socket.emit('error', { message: 'Authentication error' });
+                    logger.error('Authentication failed', { socketId: socket.id, error: error.message });
+                    socket.emit('error', { message: 'Authentication failed' });
                     socket.disconnect();
                 }
             });
 
-            // Handle commands
+            // Command handler
             socket.on('command', async (data) => {
-                try {
-                    if (!this.isSocketAuthenticated(socket.id)) {
-                        throw new Error('Socket not authenticated');
-                    }
+                if (!this.isSocketAuthenticated(socket.id)) {
+                    socket.emit('error', { message: 'Not authenticated' });
+                    return;
+                }
 
-                    this.validateSocketData(data, ['command']);
+                try {
                     const { command, ...commandData } = data;
-
-                    // Check rate limit
-                    const isAllowed = await this.checkRateLimit(command, socket.id);
-                    if (!isAllowed) {
-                        throw new Error('Rate limit exceeded');
+                    const allowed = await this.checkRateLimit(command, socket.id);
+                    if (!allowed) {
+                        socket.emit('error', { message: 'Rate limit exceeded' });
+                        return;
                     }
 
-                    // Execute command
                     const result = await this.executeCommand(command, commandData);
-                    socket.emit('commandResult', { command, success: true, result });
+                    socket.emit('command_result', result);
                 } catch (error) {
-                    logger.error('Command error:', error);
-                    socket.emit('commandResult', { command: data.command, success: false, error: error.message });
-                    if (this.trackSocketError(socket.id)) {
-                        socket.disconnect();
-                    }
+                    logger.error('Command execution failed', { socketId: socket.id, error: error.message });
+                    socket.emit('error', { message: error.message });
                 }
             });
 
-            // Handle batch commands
-            socket.on('batch', async (data) => {
-                try {
-                    if (!this.isSocketAuthenticated(socket.id)) {
-                        throw new Error('Socket not authenticated');
-                    }
-
-                    this.validateSocketData(data, ['commands']);
-                    const { commands } = data;
-
-                    // Check rate limit for each command
-                    for (const cmd of commands) {
-                        const isAllowed = await this.checkRateLimit(cmd.command, socket.id);
-                        if (!isAllowed) {
-                            throw new Error(`Rate limit exceeded for command: ${cmd.command}`);
-                        }
-                    }
-
-                    // Execute commands
-                    const results = await Promise.all(
-                        commands.map(cmd => this.executeCommand(cmd.command, cmd.data))
-                    );
-
-                    socket.emit('batchResult', { success: true, results });
-                } catch (error) {
-                    logger.error('Batch command error:', error);
-                    socket.emit('batchResult', { success: false, error: error.message });
-                    if (this.trackSocketError(socket.id)) {
-                        socket.disconnect();
-                    }
-                }
-            });
-
-            // Handle ping
-            socket.on('ping', () => {
-                socket.emit('pong');
-                this.trackSocketPing(socket.id);
-            });
-
-            // Handle disconnect
+            // Disconnect handler
             socket.on('disconnect', () => {
                 logger.info('Socket disconnected', { socketId: socket.id });
                 this.authenticatedSockets.delete(socket.id);
-                this.socketMetadata.delete(socket.id);
                 this.socketErrors.delete(socket.id);
                 this.socketPings.delete(socket.id);
                 this.socketCommands.delete(socket.id);
+                clearTimeout(authTimeout);
             });
         });
     }
 
     /**
-     * Execute command
-     * @param {string} command - Command name
-     * @param {Object} data - Command data
-     * @returns {Promise<any>} Command result
-     */
-    async executeCommand(command, data) {
-        try {
-            this.validateCommandData(command, data);
-
-            switch (command) {
-                case 'initializeRustPlus':
-                    await this.initializeRustPlus(data.ip, data.port, data.playerId, data.playerToken);
-                    return { success: true };
-                case 'getCommandStats':
-                    return this.getCommandStats();
-                case 'executeBatch':
-                    return await Promise.all(data.commands.map(cmd => this.executeCommand(cmd.command, cmd.data)));
-                default:
-                    throw new Error(`Unknown command: ${command}`);
-            }
-        } catch (error) {
-            logger.error('Command execution error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Initialize socket manager
+     * Initialize the socket manager
      */
     async initialize() {
-        try {
-            this.initializeCleanupIntervals();
-            logger.info('Socket manager initialized');
-        } catch (error) {
-            logger.error('Failed to initialize socket manager:', error);
-            throw error;
-        }
+        logger.info('Initializing socket manager');
+        // Add initialization logic here
     }
 
     /**
-     * Clean up resources
+     * Cleanup the socket manager
      */
     async cleanup() {
-        try {
-            // Clear all intervals
-            for (const interval of this.cleanupIntervals.values()) {
-                clearInterval(interval);
-            }
-            this.cleanupIntervals.clear();
-
-            // Clean up Rust+ connection
-            await this.cleanupRustPlus();
-
-            // Clear all collections
-            this.commandStats.clear();
-            this.commandRateLimits.clear();
-            this.authenticatedSockets.clear();
-            this.socketErrors.clear();
-            this.socketPings.clear();
-            this.socketCommands.clear();
-            this.commandTimeouts.clear();
-            this.batchQueues.clear();
-            this.socketMetadata.clear();
-            this.socketGroups.clear();
-            this.socketHistory.clear();
-            this.socketStats.clear();
-            this.socketEvents.clear();
-            this.socketLogs.clear();
-            this.socketSettings.clear();
-            this.socketFirmware.clear();
-            this.socketNetwork.clear();
-            this.socketLocation.clear();
-            this.socketSchedule.clear();
-            this.socketScene.clear();
-            this.socketAutomation.clear();
-            this.socketIntegration.clear();
-            this.socketBackup.clear();
-            this.socketRestore.clear();
-            this.socketMigration.clear();
-            this.socketSync.clear();
-            this.socketUpdate.clear();
-            this.socketDownload.clear();
-            this.socketUpload.clear();
-            this.socketExport.clear();
-            this.socketImport.clear();
-
-            logger.info('Socket manager cleaned up');
-        } catch (error) {
-            logger.error('Error cleaning up socket manager:', error);
-            throw error;
+        logger.info('Cleaning up socket manager');
+        // Clear all intervals
+        for (const interval of this.cleanupIntervals.values()) {
+            clearInterval(interval);
         }
+        this.cleanupIntervals.clear();
+    }
+
+    broadcastAutomationUpdate(automation) {
+        if (!this.io) return;
+        this.io.emit('automation:updated', automation);
+        logger.info('Broadcast automation update', { automationId: automation._id });
+    }
+
+    broadcastAutomationCreated(automation) {
+        if (!this.io) return;
+        this.io.emit('automation:created', automation);
+        logger.info('Broadcast automation created', { automationId: automation._id });
+    }
+
+    broadcastAutomationDeleted(automationId) {
+        if (!this.io) return;
+        this.io.emit('automation:deleted', { id: automationId });
+        logger.info('Broadcast automation deleted', { automationId });
     }
 }
 
-// Create and export singleton instance
+// Create and export the socket manager instance
 const socketManager = new SocketManager();
-export default socketManager; 
+export { socketManager }; 

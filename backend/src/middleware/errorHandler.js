@@ -1,81 +1,55 @@
-const { loggerInstance: logger } = require('../utils/logger');
+import { logger } from '../utils/logger.js';
 
-class AppError extends Error {
-    constructor(message, statusCode = 500) {
-        super(message);
-        this.statusCode = statusCode;
-        this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
-        this.isOperational = true;
+export const errorHandler = (err, req, res, next) => {
+  // Log the error
+  logger.error('Error:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.status || 500,
+    code: err.code
+  });
 
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-
-const handleCastErrorDB = err => {
-    const message = `Invalid ${err.path}: ${err.value}`;
-    return new AppError(message, 400);
-};
-
-const handleDuplicateFieldsDB = err => {
-    const value = err.errmsg.match(/(["'])(\\?.)*?\1/)[0];
-    const message = `Duplicate field value: ${value}. Please use another value!`;
-    return new AppError(message, 400);
-};
-
-const handleValidationErrorDB = err => {
-    const errors = Object.values(err.errors).map(el => el.message);
-    const message = `Invalid input data. ${errors.join('. ')}`;
-    return new AppError(message, 400);
-};
-
-const handleJWTError = () => new AppError('Invalid token. Please log in again!', 401);
-
-const handleJWTExpiredError = () => new AppError('Your token has expired! Please log in again.', 401);
-
-const sendErrorDev = (err, req, res) => {
-    logger.error('ERROR 💥', err);
-    return res.status(err.statusCode).json({
-        status: err.status,
-        error: err,
-        message: err.message,
-        stack: err.stack
+  // Handle Sequelize validation errors
+  if (err.name === 'SequelizeValidationError') {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validation Error',
+      errors: err.errors.map(error => ({
+        field: error.path,
+        message: error.message
+      }))
     });
-};
+  }
 
-const sendErrorProd = (err, req, res) => {
-    // Operational, trusted error: send message to client
-    if (err.isOperational) {
-        return res.status(err.statusCode).json({
-            status: err.status,
-            message: err.message
-        });
-    }
-    // Programming or other unknown error: don't leak error details
-    logger.error('ERROR 💥', err);
-    return res.status(500).json({
-        status: 'error',
-        message: 'Something went very wrong!'
+  // Handle Sequelize unique constraint errors
+  if (err.name === 'SequelizeUniqueConstraintError') {
+    const field = err.errors[0].path;
+    return res.status(400).json({
+      status: 'error',
+      message: `${field} already exists`
     });
-};
+  }
 
-module.exports = (err, req, res, next) => {
-    err.statusCode = err.statusCode || 500;
-    err.status = err.status || 'error';
+  // Handle JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Invalid token'
+    });
+  }
 
-    if (process.env.NODE_ENV === 'development') {
-        sendErrorDev(err, req, res);
-    } else {
-        let error = { ...err };
-        error.message = err.message;
+  // Handle custom AppError
+  if (err.isOperational) {
+    return res.status(err.status).json({
+      status: 'error',
+      message: err.message,
+      code: err.code
+    });
+  }
 
-        if (error.name === 'CastError') error = handleCastErrorDB(error);
-        if (error.code === 11000) error = handleDuplicateFieldsDB(error);
-        if (error.name === 'ValidationError') error = handleValidationErrorDB(error);
-        if (error.name === 'JsonWebTokenError') error = handleJWTError();
-        if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
-
-        sendErrorProd(error, req, res);
-    }
-};
-
-module.exports.AppError = AppError; 
+  // Handle all other errors
+  res.status(err.status || 500).json({
+    status: 'error',
+    message: err.message || 'Internal server error'
+  });
+}; 

@@ -1,6 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
 import App from './App.jsx';
 import './style.css';
 
@@ -22,12 +24,19 @@ window.APP_VERSION = process.env.VITE_APP_VERSION || '1.0.0';
 window.BUILD_DATE = new Date().toISOString();
 
 const container = document.getElementById('root');
-const root = createRoot(container);
+if (!container) {
+  throw new Error('Root element not found');
+}
 
+const root = createRoot(container);
 root.render(
-    <React.StrictMode>
-        <Router>
-            <App />
-        </Router>
-    </React.StrictMode>
+  <React.StrictMode>
+    <Router>
+      <AuthProvider>
+        <SocketProvider>
+          <App />
+        </SocketProvider>
+      </AuthProvider>
+    </Router>
+  </React.StrictMode>
 );

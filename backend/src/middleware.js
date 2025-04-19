@@ -3,7 +3,7 @@
  * @module middleware
  */
 
-import { logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 import { errorHandler, ValidationError, AuthenticationError, AuthorizationError, RateLimitError } from './utils/errorHandlers.js';
 import config from './config.js';
 import { RateLimiterMemory } from 'rate-limiter-flexible';

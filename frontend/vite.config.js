@@ -14,11 +14,12 @@ export default defineConfig(({ command, mode }) => {
     const isProduction = command === 'build';
     const basePath = env.VITE_BASE_PATH || '/';
     const apiUrl = env.VITE_API_URL || 'http://localhost:3000';
+    const devPort = parseInt(env.VITE_DEV_PORT || '3001', 10);
     
     return {
         base: basePath,
         server: {
-            port: 3000,
+            port: devPort,
             strictPort: true,
             proxy: {
                 '/api': {

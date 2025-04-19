@@ -1,40 +1,120 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import './DashboardLayout.css';
+import { Outlet } from 'react-router-dom';
+import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, 
+         ListItemIcon, ListItemText, IconButton, Divider } from '@mui/material';
+import { Menu as MenuIcon, Dashboard as DashboardIcon, 
+         People as PeopleIcon, Settings as SettingsIcon, 
+         Code as CodeIcon } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function DashboardLayout() {
-  const location = useLocation();
+const drawerWidth = 240;
 
-  const navItems = [
-    { path: '/dashboard', label: 'Overview', icon: '📊' },
-    { path: '/dashboard/players', label: 'Players', icon: '👥' },
-    { path: '/dashboard/commands', label: 'Commands', icon: '⚙️' },
-    { path: '/dashboard/settings', label: 'Settings', icon: '⚙️' }
-  ];
+const DashboardLayout = () => {
+    const [mobileOpen, setMobileOpen] = React.useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
 
-  return (
-    <div className="dashboard-layout">
-      <nav className="sidebar">
-        <div className="sidebar-header">
-          <h1>RustBot</h1>
+    const handleDrawerToggle = () => {
+        setMobileOpen(!mobileOpen);
+    };
+
+    const menuItems = [
+        { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+        { text: 'Players', icon: <PeopleIcon />, path: '/players' },
+        { text: 'Commands', icon: <CodeIcon />, path: '/commands' },
+        { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    ];
+
+    const drawer = (
+        <div>
+            <Toolbar>
+                <Typography variant="h6" noWrap component="div">
+                    Kinabot
+                </Typography>
+            </Toolbar>
+            <Divider />
+            <List>
+                {menuItems.map((item) => (
+                    <ListItem
+                        button
+                        key={item.text}
+                        onClick={() => navigate(item.path)}
+                        selected={location.pathname === item.path}
+                    >
+                        <ListItemIcon>{item.icon}</ListItemIcon>
+                        <ListItemText primary={item.text} />
+                    </ListItem>
+                ))}
+            </List>
         </div>
-        <ul className="nav-items">
-          {navItems.map((item) => (
-            <li key={item.path}>
-              <Link
-                to={item.path}
-                className={location.pathname === item.path ? 'active' : ''}
-              >
-                <span className="icon">{item.icon}</span>
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <main className="main-content">
-        <Outlet />
-      </main>
-    </div>
-  );
-} 
+    );
+
+    return (
+        <Box sx={{ display: 'flex' }}>
+            <AppBar
+                position="fixed"
+                sx={{
+                    width: { sm: `calc(100% - ${drawerWidth}px)` },
+                    ml: { sm: `${drawerWidth}px` },
+                }}
+            >
+                <Toolbar>
+                    <IconButton
+                        color="inherit"
+                        aria-label="open drawer"
+                        edge="start"
+                        onClick={handleDrawerToggle}
+                        sx={{ mr: 2, display: { sm: 'none' } }}
+                    >
+                        <MenuIcon />
+                    </IconButton>
+                    <Typography variant="h6" noWrap component="div">
+                        {menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
+                    </Typography>
+                </Toolbar>
+            </AppBar>
+            <Box
+                component="nav"
+                sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+            >
+                <Drawer
+                    variant="temporary"
+                    open={mobileOpen}
+                    onClose={handleDrawerToggle}
+                    ModalProps={{
+                        keepMounted: true, // Better open performance on mobile.
+                    }}
+                    sx={{
+                        display: { xs: 'block', sm: 'none' },
+                        '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                    }}
+                >
+                    {drawer}
+                </Drawer>
+                <Drawer
+                    variant="permanent"
+                    sx={{
+                        display: { xs: 'none', sm: 'block' },
+                        '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                    }}
+                    open
+                >
+                    {drawer}
+                </Drawer>
+            </Box>
+            <Box
+                component="main"
+                sx={{
+                    flexGrow: 1,
+                    p: 3,
+                    width: { sm: `calc(100% - ${drawerWidth}px)` },
+                }}
+            >
+                <Toolbar />
+                <Outlet />
+            </Box>
+        </Box>
+    );
+};
+
+export default DashboardLayout; 

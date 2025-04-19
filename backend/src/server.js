@@ -7,7 +7,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import config from './config.js';
-import { logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 import { errorHandler } from './utils/errorHandlers.js';
 import {
     authenticate,
@@ -22,35 +22,42 @@ import {
     performanceMonitor,
     cacheControl
 } from './middleware.js';
+import helmet from 'helmet';
+import compression from 'compression';
+import cors from 'cors';
+import morgan from 'morgan';
+import { sequelize } from './config/database.js';
+import { userController, deviceController, sceneController, automationController } from './controllers/index.js';
 
 // Create Express app
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: config.get('CORS_ORIGIN'),
-        methods: config.get('CORS_METHODS'),
-        allowedHeaders: config.get('CORS_ALLOWED_HEADERS'),
-        credentials: config.get('CORS_CREDENTIALS')
+        origin: config.get('CORS_ORIGIN') || 'http://localhost:3000',
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true,
+        maxAge: 86400 // 24 hours
     }
 });
 
 // Apply middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(securityHeaders);
-app.use(corsMiddleware);
-app.use(compress);
-app.use(requestLogger);
-app.use(performanceMonitor);
-app.use(cacheControl);
-app.use(sanitize);
-app.use(rateLimit);
+app.use(cors({
+    origin: config.get('CORS_ORIGIN'),
+    credentials: true
+}));
+app.use(helmet());
+app.use(compression());
+app.use(morgan('dev'));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Routes
+app.use('/api/users', userController);
+app.use('/api/devices', deviceController);
+app.use('/api/scenes', sceneController);
+app.use('/api/automations', automationController);
 
 // Error handling
 app.use(errorHandler);
@@ -58,6 +65,14 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
     try {
+        // Test database connection
+        await sequelize.authenticate();
+        logger.info('Database connection has been established successfully.');
+
+        // Sync database models
+        await sequelize.sync({ alter: true });
+        logger.info('Database models synchronized.');
+
         const port = config.get('PORT');
         const host = config.get('HOST');
 
@@ -79,6 +94,10 @@ const startServer = async () => {
                 logger.info('Socket.IO server closed');
             });
 
+            // Close database connection
+            await sequelize.close();
+            logger.info('Database connection closed');
+
             // Force shutdown after timeout
             setTimeout(() => {
                 logger.error('Could not close connections in time, forcefully shutting down');
@@ -96,5 +115,4 @@ const startServer = async () => {
     }
 };
 
-// Export server instance
-export { app, httpServer, io, startServer }; 
+export default startServer; 
