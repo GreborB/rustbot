@@ -1,58 +1,168 @@
 import express from 'express';
-import { generateToken } from '../utils/security.js';
-import steamAuth from '../services/steamAuth.js';
-import { User } from '../models/index.js';
+import { loginLimiter, apiLimiter } from '../middleware/rateLimit.js';
+import { validate, schemas } from '../middleware/validator.js';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { User } from '../models/Index.js';
+import { generateTokens } from '../utils/security.js';
+import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// Steam authentication routes
-router.get('/steam', async (req, res) => {
+// Login route with rate limiting and validation
+router.post('/login', loginLimiter, validate(schemas.login), async (req, res, next) => {
     try {
-        const authUrl = await steamAuth.getAuthUrl();
-        res.redirect(authUrl);
+        const { username, password } = req.body;
+
+        const user = await User.findOne({ where: { username } });
+        if (!user) {
+            throw new AppError('Invalid credentials', 401);
+        }
+
+        const isValidPassword = await user.comparePassword(password);
+        if (!isValidPassword) {
+            throw new AppError('Invalid credentials', 401);
+        }
+
+        if (!user.isActive) {
+            throw new AppError('Account is deactivated', 401);
+        }
+
+        // Update last login
+        user.lastLogin = new Date();
+        await user.save();
+
+        // Generate tokens
+        const tokens = generateTokens({ id: user.id, role: user.role });
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                steamId: user.steamId,
+                avatar: user.avatar
+            },
+            ...tokens
+        });
     } catch (error) {
-        logger.error('Steam auth error:', error);
-        res.status(500).json({ error: 'Failed to initiate Steam authentication' });
+        next(error);
     }
 });
 
-router.get('/steam/callback', async (req, res) => {
+// Register route with validation
+router.post('/register', validate(schemas.register), async (req, res, next) => {
     try {
-        const steamUser = await steamAuth.verifyCallback(req.query);
-        
-        // Find or create user
-        let user = await User.findOne({ where: { steamId: steamUser.steamId } });
-        
-        if (!user) {
-            user = await User.create({
-                username: steamUser.username,
-                steamId: steamUser.steamId,
-                avatar: steamUser.avatar,
-                profileUrl: steamUser.profileUrl
-            });
-        } else {
-            // Update user info
-            await user.update({
-                username: steamUser.username,
-                avatar: steamUser.avatar,
-                profileUrl: steamUser.profileUrl,
-                lastLogin: new Date()
-            });
-        }
+        const { username, email, password } = req.body;
 
-        // Generate JWT token
-        const token = generateToken({ 
-            id: user.id,
-            username: user.username,
-            steamId: user.steamId
+        // Check if username or email already exists
+        const existingUser = await User.findOne({
+            where: {
+                [Op.or]: [{ username }, { email }]
+            }
         });
 
-        // Redirect to frontend with token
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+        if (existingUser) {
+            throw new AppError('Username or email already exists', 400);
+        }
+
+        // Create new user
+        const user = await User.create({
+            username,
+            email,
+            password,
+            role: 'user'
+        });
+
+        // Generate tokens
+        const tokens = generateTokens({ id: user.id, role: user.role });
+
+        res.status(201).json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            },
+            ...tokens
+        });
     } catch (error) {
-        logger.error('Steam callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+        next(error);
+    }
+});
+
+// Get current user
+router.get('/me', authenticate, apiLimiter, async (req, res) => {
+    res.json({
+        success: true,
+        user: {
+            id: req.user.id,
+            username: req.user.username,
+            email: req.user.email,
+            role: req.user.role,
+            steamId: req.user.steamId,
+            avatar: req.user.avatar
+        }
+    });
+});
+
+// Update user profile
+router.put('/me', authenticate, validate(schemas.updateUser), async (req, res, next) => {
+    try {
+        const { username, email, currentPassword, newPassword } = req.body;
+        const user = req.user;
+
+        // If changing password, verify current password
+        if (newPassword) {
+            const isValidPassword = await user.comparePassword(currentPassword);
+            if (!isValidPassword) {
+                throw new AppError('Current password is incorrect', 400);
+            }
+            user.password = newPassword;
+        }
+
+        // Update other fields
+        if (username) user.username = username;
+        if (email) user.email = email;
+
+        await user.save();
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Steam authentication routes
+router.get('/steam', authenticate, (req, res) => {
+    const returnUrl = `${req.protocol}://${req.get('host')}/auth/steam/callback`;
+    const authUrl = `https://steamcommunity.com/openid/login?openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.mode=checkid_setup&openid.ns=http://specs.openid.net/auth/2.0&openid.realm=${returnUrl}&openid.return_to=${returnUrl}`;
+    res.redirect(authUrl);
+});
+
+router.get('/steam/callback', authenticate, async (req, res, next) => {
+    try {
+        const user = req.user;
+        const steamId = req.query['openid.identity'].split('/').pop();
+
+        // Update user with Steam info
+        user.steamId = steamId;
+        await user.save();
+
+        res.redirect('/dashboard');
+    } catch (error) {
+        next(error);
     }
 });
 
