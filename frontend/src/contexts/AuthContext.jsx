@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { login, logout, getCurrentUser } from '../services/auth';
+import { authService } from '../services/auth';
 
 const AuthContext = createContext(null);
 
@@ -12,14 +12,14 @@ export const AuthProvider = ({ children }) => {
         // Check for existing token and validate it on mount
         const checkAuth = async () => {
             try {
-                const userData = await getCurrentUser();
+                const userData = await authService.getCurrentUser();
                 if (userData) {
                     setUser(userData);
                 }
             } catch (err) {
                 console.error('Auth check failed:', err);
                 // Clear any invalid tokens
-                logout();
+                authService.logout();
             } finally {
                 setLoading(false);
             }
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     const signIn = async (username, password) => {
         try {
             setError(null);
-            const userData = await login(username, password);
+            const userData = await authService.login(username, password);
             setUser(userData);
             return userData;
         } catch (err) {
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
     const signOut = async () => {
         try {
-            await logout();
+            await authService.logout();
             setUser(null);
         } catch (err) {
             console.error('Logout failed:', err);

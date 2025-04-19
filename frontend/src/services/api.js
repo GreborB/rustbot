@@ -1,5 +1,5 @@
 import axios from 'axios';
-import authService, { getAccessToken } from './auth';
+import { authService } from './auth';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -14,7 +14,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
     (config) => {
-        const token = getAccessToken();
+        const token = authService.getAccessToken();
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -37,7 +37,7 @@ api.interceptors.response.use(
 
             try {
                 // Attempt to refresh the token
-                const newToken = await refreshToken();
+                const newToken = await authService.refreshToken();
                 if (newToken) {
                     // Retry the original request with new token
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
