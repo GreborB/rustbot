@@ -27,7 +27,7 @@ import compression from 'compression';
 import cors from 'cors';
 import morgan from 'morgan';
 import { sequelize } from './config/database.js';
-import { userController, deviceController, sceneController, automationController } from './controllers/Index.js';
+import { userController, deviceController, sceneController, automationController } from './controllers/index.js';
 
 // Create Express app
 const app = express();
