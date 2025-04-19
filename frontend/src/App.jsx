@@ -15,15 +15,14 @@ import SmartSwitches from './pages/SmartSwitches';
 import Scenes from './pages/Scenes';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
-import { useState, useEffect } from 'react';
 import PrivateRoute from './components/PrivateRoute';
 import { theme } from './theme';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, isLoading, checkAuth } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
+  const [isChecking, setIsChecking] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     let mounted = true;
 
     const verifyAuth = async () => {
@@ -73,19 +72,13 @@ const App = () => {
 
                 {/* Protected routes */}
                 <Route
-                  path="/dashboard/*"
+                  path="/"
                   element={
                     <PrivateRoute>
                       <Dashboard />
                     </PrivateRoute>
                   }
-                >
-                  <Route index element={<Storage />} />
-                  <Route path="storage" element={<Storage />} />
-                  <Route path="smart-switches" element={<SmartSwitches />} />
-                  <Route path="scenes" element={<Scenes />} />
-                  <Route path="settings" element={<Settings />} />
-                </Route>
+                />
 
                 {/* Redirect root to dashboard */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

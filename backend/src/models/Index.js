@@ -1,13 +1,8 @@
-import Scene from './Scene.js';
-import SceneSchedule from './SceneSchedule.js';
-import SmartSwitch from './SmartSwitch.js';
-import Storage from './Storage.js';
-import User from './User.js';
+import { User } from './User.js';
+import { Device } from './Device.js';
+import { DeviceState } from './DeviceState.js';
+import { Scene } from './Scene.js';
+import { SceneSchedule } from './SceneSchedule.js';
+import { Automation } from './Automation.js';
 
-export {
-  Scene,
-  SceneSchedule,
-  SmartSwitch,
-  Storage,
-  User
-}; 
+export { User, Device, DeviceState, Scene, SceneSchedule, Automation }; 

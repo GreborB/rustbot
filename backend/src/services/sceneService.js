@@ -1,4 +1,4 @@
-import { Scene, Device } from '../models/Index.js';
+import { Scene, Device } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 import { deviceService } from './deviceService.js';
 
