@@ -1,119 +1,11 @@
 import axios from 'axios';
+import { api } from './api';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 class AuthService {
     constructor() {
         this.tokenRefreshTimeout = null;
-    }
-
-    async register(username, password) {
-        try {
-            const response = await axios.post(`${API_URL}/auth/register`, {
-                username,
-                password
-            });
-            const { accessToken, refreshToken } = response.data;
-            this.setTokens(accessToken, refreshToken);
-            return response.data;
-        } catch (error) {
-            throw new Error(error.response?.data?.message || 'Registration failed');
-        }
-    }
-
-    async login(username, password) {
-        try {
-            const response = await axios.post(`${API_URL}/auth/login`, {
-                username,
-                password
-            });
-            const { accessToken, refreshToken } = response.data;
-            this.setTokens(accessToken, refreshToken);
-            return response.data;
-        } catch (error) {
-            throw new Error(error.response?.data?.message || 'Login failed');
-        }
-    }
-
-    async logout() {
-        try {
-            const token = this.getAccessToken();
-            if (token) {
-                await axios.post(`${API_URL}/auth/logout`, null, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-            }
-            this.clearTokens();
-        } catch (error) {
-            this.clearTokens();
-            throw new Error(error.response?.data?.message || 'Logout failed');
-        }
-    }
-
-    async refreshToken() {
-        try {
-            const refreshToken = this.getRefreshToken();
-            if (!refreshToken) {
-                throw new Error('No refresh token available');
-            }
-
-            const response = await axios.post(`${API_URL}/auth/refresh-token`, {
-                refreshToken
-            });
-            const { accessToken, refreshToken: newRefreshToken } = response.data;
-            this.setTokens(accessToken, newRefreshToken);
-            return accessToken;
-        } catch (error) {
-            this.clearTokens();
-            throw new Error('Failed to refresh token');
-        }
-    }
-
-    async getCurrentUser() {
-        try {
-            const token = this.getAccessToken();
-            if (!token) return null;
-
-            const response = await axios.get(`${API_URL}/auth/profile`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            return response.data;
-        } catch (error) {
-            if (error.response?.status === 401) {
-                try {
-                    const newToken = await this.refreshToken();
-                    const response = await axios.get(`${API_URL}/auth/profile`, {
-                        headers: { Authorization: `Bearer ${newToken}` }
-                    });
-                    return response.data;
-                } catch (refreshError) {
-                    this.clearTokens();
-                    return null;
-                }
-            }
-            return null;
-        }
-    }
-
-    async requestPasswordReset(email) {
-        try {
-            await axios.post(`${API_URL}/auth/forgot-password`, { email });
-            return true;
-        } catch (error) {
-            throw new Error(error.response?.data?.message || 'Failed to request password reset');
-        }
-    }
-
-    async resetPassword(token, newPassword) {
-        try {
-            await axios.post(`${API_URL}/auth/reset-password`, {
-                token,
-                password: newPassword
-            });
-            return true;
-        } catch (error) {
-            throw new Error(error.response?.data?.message || 'Failed to reset password');
-        }
     }
 
     // Token management
@@ -156,6 +48,115 @@ class AuthService {
         }, 10 * 60 * 1000); // 10 minutes
     }
 
+    async register(username, password) {
+        try {
+            const response = await api.post('/auth/register', {
+                username,
+                password
+            });
+            const { accessToken, refreshToken } = response.data;
+            this.setTokens(accessToken, refreshToken);
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Registration failed');
+        }
+    }
+
+    async login(username, password) {
+        try {
+            const response = await api.post('/auth/login', {
+                username,
+                password
+            });
+            const { accessToken, refreshToken } = response.data;
+            this.setTokens(accessToken, refreshToken);
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Login failed');
+        }
+    }
+
+    async logout() {
+        try {
+            const token = this.getAccessToken();
+            if (token) {
+                await api.post('/auth/logout', null, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+            }
+            this.clearTokens();
+        } catch (error) {
+            this.clearTokens();
+            throw new Error(error.response?.data?.message || 'Logout failed');
+        }
+    }
+
+    async refreshToken() {
+        try {
+            const refreshToken = this.getRefreshToken();
+            if (!refreshToken) {
+                throw new Error('No refresh token available');
+            }
+
+            const response = await api.post('/auth/refresh-token', {
+                refreshToken
+            });
+            const { accessToken, refreshToken: newRefreshToken } = response.data;
+            this.setTokens(accessToken, newRefreshToken);
+            return accessToken;
+        } catch (error) {
+            this.clearTokens();
+            throw new Error('Failed to refresh token');
+        }
+    }
+
+    async getCurrentUser() {
+        try {
+            const token = this.getAccessToken();
+            if (!token) return null;
+
+            const response = await api.get('/auth/me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 401) {
+                try {
+                    const newToken = await this.refreshToken();
+                    const response = await api.get('/auth/me', {
+                        headers: { Authorization: `Bearer ${newToken}` }
+                    });
+                    return response.data;
+                } catch (refreshError) {
+                    this.clearTokens();
+                    return null;
+                }
+            }
+            return null;
+        }
+    }
+
+    async requestPasswordReset(email) {
+        try {
+            await api.post('/auth/forgot-password', { email });
+            return true;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Failed to request password reset');
+        }
+    }
+
+    async resetPassword(token, newPassword) {
+        try {
+            await api.post('/auth/reset-password', {
+                token,
+                password: newPassword
+            });
+            return true;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Failed to reset password');
+        }
+    }
+
     // API request interceptor
     setupAxiosInterceptors() {
         axios.interceptors.request.use(
@@ -194,7 +195,7 @@ class AuthService {
     async connectToServer(serverInfo) {
         try {
             const token = this.getAccessToken();
-            const response = await axios.post(`${API_URL}/connect`, serverInfo, {
+            const response = await api.post('/connect', serverInfo, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -206,7 +207,7 @@ class AuthService {
     async disconnectFromServer() {
         try {
             const token = this.getAccessToken();
-            await axios.post(`${API_URL}/disconnect`, null, {
+            await api.post('/disconnect', null, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return true;
@@ -218,7 +219,7 @@ class AuthService {
     async getFCMCredentials() {
         try {
             const token = this.getAccessToken();
-            const response = await axios.get(`${API_URL}/fcm/credentials`, {
+            const response = await api.get('/fcm/credentials', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -230,7 +231,7 @@ class AuthService {
     async handlePairingRequest(pairingData) {
         try {
             const token = this.getAccessToken();
-            const response = await axios.post(`${API_URL}/pairing/handle`, pairingData, {
+            const response = await api.post('/pairing/handle', pairingData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -242,7 +243,7 @@ class AuthService {
     async getServerInfo() {
         try {
             const token = this.getAccessToken();
-            const response = await axios.get(`${API_URL}/server/info`, {
+            const response = await api.get('/server/info', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -256,17 +257,15 @@ class AuthService {
 const authService = new AuthService();
 
 // Export the instance methods
-export const login = authService.login.bind(authService);
-export const register = authService.register.bind(authService);
-export const logout = authService.logout.bind(authService);
-export const getCurrentUser = authService.getCurrentUser.bind(authService);
-export const requestPasswordReset = authService.requestPasswordReset.bind(authService);
-export const resetPassword = authService.resetPassword.bind(authService);
-export const connectToServer = authService.connectToServer.bind(authService);
-export const disconnectFromServer = authService.disconnectFromServer.bind(authService);
-export const getFCMCredentials = authService.getFCMCredentials.bind(authService);
-export const handlePairingRequest = authService.handlePairingRequest.bind(authService);
-export const getServerInfo = authService.getServerInfo.bind(authService);
+export const {
+    login,
+    register,
+    logout,
+    getCurrentUser,
+    getAccessToken,
+    getRefreshToken,
+    refreshToken
+} = authService;
 
 // Export Steam-specific functions
 export const loginWithSteam = () => {
@@ -275,7 +274,7 @@ export const loginWithSteam = () => {
 
 export const handleAuthCallback = async (token) => {
     try {
-        const response = await axios.get(`${API_URL}/auth/steam/callback`, {
+        const response = await api.get('/auth/steam/callback', {
             params: { token }
         });
         return response.data;
@@ -287,7 +286,7 @@ export const handleAuthCallback = async (token) => {
 export const pairWithServer = async (serverInfo) => {
     try {
         const token = authService.getAccessToken();
-        const response = await axios.post(`${API_URL}/rust/pair`, serverInfo, {
+        const response = await api.post('/rust/pair', serverInfo, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;

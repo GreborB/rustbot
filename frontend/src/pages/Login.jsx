@@ -1,28 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Box, Button, Container, TextField, Typography, Paper, Alert } from '@mui/material';
-import { login } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
-      await login(username, password);
+      await signIn(username, password);
       toast.success('Login successful');
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
-      toast.error(err.message);
+      toast.error(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -55,6 +53,7 @@ export default function Login() {
               autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
             />
             <TextField
               margin="normal"
@@ -67,13 +66,8 @@ export default function Login() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
-            
-            {error && (
-              <Typography color="error" align="center" sx={{ mt: 2 }}>
-                {error}
-              </Typography>
-            )}
             
             <Button
               type="submit"

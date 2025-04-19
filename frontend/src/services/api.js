@@ -1,88 +1,118 @@
 import axios from 'axios';
+import { getAccessToken } from './auth';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
-class ApiService {
-    constructor() {
-        this.client = axios.create({
-            baseURL: API_BASE_URL,
-            timeout: 10000,
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+// Create axios instance with default config
+const api = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
 
-        // Add request interceptor for authentication
-        this.client.interceptors.request.use(
-            (config) => {
-                const token = localStorage.getItem('token');
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
+// Request interceptor to add auth token
+api.interceptors.request.use(
+    (config) => {
+        const token = getAccessToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Response interceptor to handle token expiration
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+
+        // If error is 401 and we haven't tried to refresh the token yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                // Attempt to refresh the token
+                const newToken = await refreshToken();
+                if (newToken) {
+                    // Retry the original request with new token
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return api(originalRequest);
                 }
-                return config;
-            },
-            (error) => {
-                return Promise.reject(error);
+            } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
+                // If refresh fails, redirect to login
+                window.location.href = '/login';
             }
-        );
+        }
 
-        // Add response interceptor for error handling
-        this.client.interceptors.response.use(
-            (response) => response,
-            (error) => {
-                if (error.response?.status === 401) {
-                    localStorage.removeItem('token');
-                    window.location.href = '/login';
-                }
-                return Promise.reject(error);
-            }
-        );
+        return Promise.reject(error);
     }
+);
 
-    async login(username, password) {
-        const response = await this.client.post('/users/login', { username, password });
-        return response.data;
-    }
+// API methods
+export const login = async (credentials) => {
+    const response = await api.post('/auth/login', credentials);
+    return response.data;
+};
 
-    async register(username, password) {
-        const response = await this.client.post('/users/register', { username, password });
-        return response.data;
-    }
+export const register = async (userData) => {
+    const response = await api.post('/auth/register', userData);
+    return response.data;
+};
 
-    async getAutomations() {
-        const response = await this.client.get('/automations');
-        return response.data;
-    }
+export const getCurrentUser = async () => {
+    const response = await api.get('/auth/me');
+    return response.data;
+};
 
-    async createAutomation(data) {
-        const response = await this.client.post('/automations', data);
-        return response.data;
-    }
+export const updateUser = async (userData) => {
+    const response = await api.put('/auth/me', userData);
+    return response.data;
+};
 
-    async updateAutomation(id, data) {
-        const response = await this.client.put(`/automations/${id}`, data);
-        return response.data;
-    }
+export const getServerInfo = async () => {
+    const response = await api.get('/server/info');
+    return response.data;
+};
 
-    async deleteAutomation(id) {
-        const response = await this.client.delete(`/automations/${id}`);
-        return response.data;
-    }
+export const sendCommand = async (command) => {
+    const response = await api.post('/commands', { command });
+    return response.data;
+};
 
-    async getDevices() {
-        const response = await this.client.get('/devices');
-        return response.data;
-    }
+export const getPlayerInfo = async (playerId) => {
+    const response = await api.get(`/players/${playerId}`);
+    return response.data;
+};
 
-    async getScenes() {
-        const response = await this.client.get('/scenes');
-        return response.data;
-    }
+export const getVendingMachines = async () => {
+    const response = await api.get('/vending');
+    return response.data;
+};
 
-    async executeScene(id) {
-        const response = await this.client.post(`/scenes/${id}/execute`);
-        return response.data;
-    }
-}
+export const getUpkeepInfo = async () => {
+    const response = await api.get('/upkeep');
+    return response.data;
+};
 
-export default new ApiService();
+export const getRecycleInfo = async () => {
+    const response = await api.get('/recycle');
+    return response.data;
+};
+
+export const getTimers = async () => {
+    const response = await api.get('/timers');
+    return response.data;
+};
+
+export const toggleSwitch = async (switchId) => {
+    const response = await api.post(`/switches/${switchId}/toggle`);
+    return response.data;
+};
+
+export default api;
