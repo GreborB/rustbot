@@ -1,31 +1,19 @@
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Button, Typography, Box } from '@mui/material';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { hasError: false, error: null, errorInfo: null };
+        this.state = { hasError: false, error: null };
     }
 
     static getDerivedStateFromError(error) {
-        return { hasError: true };
+        return { hasError: true, error };
     }
 
     componentDidCatch(error, errorInfo) {
-        this.setState({
-            error: error,
-            errorInfo: errorInfo
-        });
-        
-        // Log error to backend
-        if (window.APP_VERSION) {
-            console.error('Error caught by boundary:', {
-                error,
-                errorInfo,
-                version: window.APP_VERSION,
-                timestamp: new Date().toISOString()
-            });
-        }
+        console.error('Error caught by boundary:', error, errorInfo);
     }
 
     render() {
@@ -46,25 +34,18 @@ class ErrorBoundary extends React.Component {
                         Something went wrong
                     </Typography>
                     <Typography variant="body1" color="text.secondary" paragraph>
-                        We're sorry, but something went wrong. Please try refreshing the page.
+                        {this.state.error?.message || 'An unexpected error occurred'}
                     </Typography>
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={() => window.location.reload()}
+                        onClick={() => {
+                            this.setState({ hasError: false, error: null });
+                            window.location.reload();
+                        }}
                     >
-                        Refresh Page
+                        Try Again
                     </Button>
-                    {process.env.NODE_ENV === 'development' && (
-                        <Box sx={{ mt: 2, textAlign: 'left' }}>
-                            <Typography variant="body2" color="text.secondary">
-                                Error: {this.state.error?.toString()}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Component Stack: {this.state.errorInfo?.componentStack}
-                            </Typography>
-                        </Box>
-                    )}
                 </Box>
             );
         }

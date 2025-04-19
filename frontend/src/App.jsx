@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -13,7 +13,11 @@ import Commands from './pages/Commands';
 import Settings from './pages/Settings';
 import { useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import socketService from './services/socket';
+import { SOCKET_EVENTS } from './utils/socketUtils';
+import { safeLocalStorage } from './utils/apiUtils';
 import './style.css';
+import LoadingSpinner from './components/LoadingSpinner';
 
 const theme = createTheme({
   palette: {
@@ -28,46 +32,86 @@ const theme = createTheme({
 });
 
 function PrivateRoute({ children }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, loading, navigate]);
+
+  if (loading) {
+    return <LoadingSpinner message="Checking authentication..." />;
+  }
+
+  return isAuthenticated ? children : null;
 }
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleSocketDisconnect = () => {
+      const token = safeLocalStorage.getItem('token');
+      if (!token) {
+        console.log('No token found after disconnect, redirecting to login');
+        navigate('/login', { state: { from: location.pathname } });
+      }
+    };
+
+    const handleSocketError = (error) => {
+      console.error('Socket error in App:', error);
+      if (error.message.includes('authentication')) {
+        navigate('/login', { state: { from: location.pathname } });
+      }
+    };
+
+    socketService.on(SOCKET_EVENTS.DISCONNECT, handleSocketDisconnect);
+    socketService.on(SOCKET_EVENTS.ERROR, handleSocketError);
+
+    return () => {
+      socketService.off(SOCKET_EVENTS.DISCONNECT, handleSocketDisconnect);
+      socketService.off(SOCKET_EVENTS.ERROR, handleSocketError);
+    };
+  }, [navigate, location.pathname]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
-        <Suspense fallback={<div>Loading...</div>}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <DashboardLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="players" element={<Players />} />
-              <Route path="commands" element={<Commands />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-          </Routes>
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-        </Suspense>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <DashboardLayout>
+                  <Outlet />
+                </DashboardLayout>
+              </PrivateRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="players" element={<Players />} />
+            <Route path="commands" element={<Commands />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
       </ErrorBoundary>
     </ThemeProvider>
   );

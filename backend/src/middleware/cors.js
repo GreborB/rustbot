@@ -4,10 +4,11 @@ import { logger } from '../utils/logger.js';
 
 // List of allowed origins
 const allowedOrigins = [
-    'http://localhost:3001', // Development
-    'http://localhost:3000', // Development alternative
-    process.env.FRONTEND_URL, // Production
-    process.env.CORS_ORIGIN // Custom origin from env
+    'http://localhost:3000', // Development
+    'http://localhost:3001', // Development alternative
+    process.env.FRONTEND_URL, // Production frontend URL
+    process.env.CORS_ORIGIN, // Custom origin from env
+    process.env.NODE_ENV === 'development' ? '*' : undefined // Allow all in development
 ].filter(Boolean); // Remove any undefined values
 
 // CORS options
@@ -15,6 +16,11 @@ const corsOptions = {
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) {
+            return callback(null, true);
+        }
+
+        // In development, allow all origins
+        if (process.env.NODE_ENV === 'development') {
             return callback(null, true);
         }
 
@@ -48,7 +54,7 @@ const corsOptions = {
 // Create CORS middleware
 export const corsMiddleware = cors(corsOptions);
 
-// Export CORS options for WebSocket
+// Export CORS options for WebSocket server
 export const corsOptionsForWs = {
     origin: corsOptions.origin,
     methods: ['GET', 'POST'],

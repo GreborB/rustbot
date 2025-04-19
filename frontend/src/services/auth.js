@@ -248,9 +248,9 @@ class AuthService {
     }
 }
 
+// Create and export a single instance
 const authService = new AuthService();
 export default authService;
-export const { getAccessToken } = authService;
 
 // Export Steam-specific functions
 export const loginWithSteam = () => {
