@@ -4,8 +4,6 @@
  */
 
 import express from 'express';
-import cors from 'cors';
-import rateLimit from 'express-rate-limit';
 import { initDatabase } from './config/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
@@ -16,11 +14,13 @@ import automationRoutes from './routes/automationRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import rustRoutes from './routes/rustRoutes.js';
 import { config } from './config/config.js';
+import { corsMiddleware } from './middleware/cors.js';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 
 // Middleware
-app.use(cors(config.cors));
+app.use(corsMiddleware); // Use our custom CORS middleware
 app.use(express.json());
 
 // Rate limiting
