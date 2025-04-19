@@ -13,6 +13,7 @@ import sceneRoutes from './routes/sceneRoutes.js';
 import automationRoutes from './routes/automationRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import rustRoutes from './routes/rustRoutes.js';
+import healthRoutes from './routes/healthRoutes.js';
 import { config } from './config/config.js';
 import { corsMiddleware } from './middleware/cors.js';
 import rateLimit from 'express-rate-limit';
@@ -70,14 +71,8 @@ const startServer = async () => {
 
 startServer();
 
-// Health check route
-app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'ok',
-        environment: config.server.env,
-        timestamp: new Date().toISOString()
-    });
-});
+// Health check routes
+app.use('/api/health', healthRoutes);
 
 // API Routes
 app.use('/api/auth', authRoutes);
