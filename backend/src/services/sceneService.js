@@ -1,6 +1,7 @@
-import { Scene, Device } from '../models';
-import { logger } from '../utils/logger';
-import { deviceService } from './deviceService';
+import { Scene } from '../models/Scene.js';
+import { Device } from '../models/Device.js';
+import { logger } from '../utils/logger.js';
+import { deviceService } from './deviceService.js';
 
 class SceneService {
   async createScene(data) {

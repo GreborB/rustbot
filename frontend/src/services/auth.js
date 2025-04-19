@@ -117,6 +117,10 @@ class AuthService {
         return this.token;
     }
 
+    getAccessToken() {
+        return this.token;
+    }
+
     getRefreshToken() {
         return this.refreshToken;
     }
@@ -244,7 +248,9 @@ class AuthService {
     }
 }
 
-export const authService = new AuthService();
+const authService = new AuthService();
+export default authService;
+export const { getAccessToken } = authService;
 
 // Export Steam-specific functions
 export const loginWithSteam = () => {
