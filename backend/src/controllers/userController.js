@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { User } from '../models/User.js';
-import { AppError } from '../utils/errorHandler.js';
+import { AppError } from '../utils/errorHandlers.js';
 import { logger } from '../utils/logger.js';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';

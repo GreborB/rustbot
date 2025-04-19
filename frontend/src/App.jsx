@@ -1,4 +1,6 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -6,6 +8,7 @@ import { SocketProvider } from './contexts/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Storage from './pages/Storage';
 import SmartSwitches from './pages/SmartSwitches';
@@ -13,6 +16,8 @@ import Scenes from './pages/Scenes';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import { useState, useEffect } from 'react';
+import PrivateRoute from './components/PrivateRoute';
+import { theme } from './theme';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, isLoading, checkAuth } = useAuth();
@@ -53,36 +58,58 @@ const PrivateRoute = ({ children }) => {
   return children;
 };
 
-function App() {
+const App = () => {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <SocketProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              >
-                <Route index element={<Storage />} />
-                <Route path="storage" element={<Storage />} />
-                <Route path="smart-switches" element={<SmartSwitches />} />
-                <Route path="scenes" element={<Scenes />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <ToastContainer position="bottom-right" />
-          </Router>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <Router>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+
+                {/* Protected routes */}
+                <Route
+                  path="/dashboard/*"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  }
+                >
+                  <Route index element={<Storage />} />
+                  <Route path="storage" element={<Storage />} />
+                  <Route path="smart-switches" element={<SmartSwitches />} />
+                  <Route path="scenes" element={<Scenes />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+
+                {/* Redirect root to dashboard */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+                {/* 404 route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Router>
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+          </ThemeProvider>
         </SocketProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
-}
+};
 
 export default App;

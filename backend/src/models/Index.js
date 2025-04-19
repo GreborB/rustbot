@@ -1,9 +1,13 @@
-import UserModel from './User.js';
-import DeviceModel from './Device.js';
-import SceneModel from './Scene.js';
-import AutomationModel from './Automation.js';
+import Scene from './Scene.js';
+import SceneSchedule from './SceneSchedule.js';
+import SmartSwitch from './SmartSwitch.js';
+import Storage from './Storage.js';
+import User from './User.js';
 
-export const User = UserModel;
-export const Device = DeviceModel;
-export const Scene = SceneModel;
-export const Automation = AutomationModel; 
+export {
+  Scene,
+  SceneSchedule,
+  SmartSwitch,
+  Storage,
+  User
+}; 

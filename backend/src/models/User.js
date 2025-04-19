@@ -18,7 +18,7 @@ const User = sequelize.define('User', {
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
     unique: true,
     validate: {
       isEmail: true
@@ -26,17 +26,52 @@ const User = sequelize.define('User', {
   },
   password: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
     validate: {
       len: [6, 100]
     }
+  },
+  steamId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  profileUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  // Rust+ credentials
+  rustServerIp: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  rustServerPort: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  rustPlayerToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  rustPlayerId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  rustLastPairing: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
     defaultValue: 'user'
   },
   lastLogin: {
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    allowNull: true
   },
   isActive: {
     type: DataTypes.BOOLEAN,
@@ -44,6 +79,7 @@ const User = sequelize.define('User', {
   }
 }, {
   timestamps: true,
+  paranoid: true,
   hooks: {
     beforeSave: async (user) => {
       if (user.changed('password')) {

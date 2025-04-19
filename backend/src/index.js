@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { initDatabase } from './config/database.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { errorHandler } from './utils/errorHandlers.js';
 import { logger } from './utils/logger.js';
 import userRoutes from './routes/userRoutes.js';
 import deviceRoutes from './routes/deviceRoutes.js';

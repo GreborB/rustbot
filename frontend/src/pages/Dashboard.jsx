@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Card, CardContent, Typography, Grid, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, CircularProgress, Paper, Container } from '@mui/material';
-import { Person, Event, Storage, Timer } from '@mui/icons-material';
+import { Person, Event, Storage, Timer, Wifi, WifiOff } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import './Dashboard.css';
 import { useNavigate, Outlet } from 'react-router-dom';
@@ -36,6 +36,7 @@ const Dashboard = () => {
     const { user } = useAuth();
     const mountedRef = useRef(true);
     const retryTimeoutRef = useRef(null);
+    const [socketStatus, setSocketStatus] = useState('disconnected');
 
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
@@ -202,6 +203,21 @@ const Dashboard = () => {
 
         setupDashboard();
 
+        // Set up socket event listeners
+        socketService.on('connect', () => {
+            setSocketStatus('connected');
+            setLoading(false);
+        });
+
+        socketService.on('disconnect', () => {
+            setSocketStatus('disconnected');
+        });
+
+        socketService.on('userData', (userData) => {
+            setUser(userData);
+        });
+
+        // Cleanup on unmount
         return () => {
             mountedRef.current = false;
             if (cleanup) {
@@ -211,8 +227,22 @@ const Dashboard = () => {
                 clearTimeout(retryTimeoutRef.current);
             }
             socketService.disconnect();
+            socketService.off('connect');
+            socketService.off('disconnect');
+            socketService.off('userData');
         };
     }, [initializeSocket, setupEventHandlers, fetchInitialData, handleError]);
+
+    const getConnectionStatusIcon = () => {
+        switch (socketStatus) {
+            case 'connected':
+                return <Wifi color="success" />;
+            case 'disconnected':
+                return <WifiOff color="error" />;
+            default:
+                return <CircularProgress size={24} />;
+        }
+    };
 
     if (loading) {
         return (
@@ -248,7 +278,7 @@ const Dashboard = () => {
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
             <Sidebar />
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <Header user={user} socketStatus={isConnected} />
+                <Header user={user} socketStatus={socketStatus} />
                 <Container maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
                     <Outlet />
                 </Container>
