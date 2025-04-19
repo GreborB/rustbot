@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config.js';
 import { logger } from './logger.js';
@@ -9,13 +9,8 @@ import { logger } from './logger.js';
  * @returns {Promise<string>} The hashed password
  */
 export const hashPassword = async (password) => {
-  try {
-    const salt = await bcrypt.genSalt(10);
-    return await bcrypt.hash(password, salt);
-  } catch (error) {
-    logger.error('Error hashing password:', error);
-    throw error;
-  }
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 };
 
 /**
@@ -25,12 +20,7 @@ export const hashPassword = async (password) => {
  * @returns {Promise<boolean>} Whether the passwords match
  */
 export const comparePassword = async (password, hashedPassword) => {
-  try {
-    return await bcrypt.compare(password, hashedPassword);
-  } catch (error) {
-    logger.error('Error comparing passwords:', error);
-    throw error;
-  }
+  return bcrypt.compare(password, hashedPassword);
 };
 
 /**
@@ -38,15 +28,20 @@ export const comparePassword = async (password, hashedPassword) => {
  * @param {Object} payload - The data to encode in the token
  * @returns {string} The generated JWT token
  */
-export const generateToken = (payload) => {
-  try {
-    return jwt.sign(payload, config.jwtSecret, {
-      expiresIn: config.jwtExpiresIn,
-    });
-  } catch (error) {
-    logger.error('Error generating token:', error);
-    throw error;
-  }
+export const generateTokens = (payload) => {
+  const accessToken = jwt.sign(
+    payload,
+    config.jwt.secret,
+    { expiresIn: config.jwt.accessExpiresIn }
+  );
+
+  const refreshToken = jwt.sign(
+    payload,
+    config.jwt.refreshSecret,
+    { expiresIn: config.jwt.refreshExpiresIn }
+  );
+
+  return { accessToken, refreshToken };
 };
 
 /**
@@ -54,11 +49,27 @@ export const generateToken = (payload) => {
  * @param {string} token - The token to verify
  * @returns {Object} The decoded token payload
  */
-export const verifyToken = (token) => {
+export const verifyToken = (token, isRefresh = false) => {
   try {
-    return jwt.verify(token, config.jwtSecret);
+    const secret = isRefresh ? config.jwt.refreshSecret : config.jwt.secret;
+    return jwt.verify(token, secret);
   } catch (error) {
-    logger.error('Error verifying token:', error);
-    throw error;
+    throw new Error('Invalid token');
+  }
+};
+
+export const generatePasswordResetToken = (userId) => {
+  return jwt.sign(
+    { userId },
+    config.jwt.resetSecret,
+    { expiresIn: '1h' }
+  );
+};
+
+export const verifyPasswordResetToken = (token) => {
+  try {
+    return jwt.verify(token, config.jwt.resetSecret);
+  } catch (error) {
+    throw new Error('Invalid or expired reset token');
   }
 }; 

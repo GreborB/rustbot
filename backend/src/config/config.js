@@ -1,42 +1,49 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from .env file
-dotenv.config({
-  path: path.resolve(process.cwd(), `.env.${process.env.NODE_ENV || 'development'}`),
-});
+// Load environment variables
+dotenv.config();
+
+const env = process.env.NODE_ENV || 'development';
 
 export const config = {
-  // Server configuration
-  port: process.env.PORT || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  
-  // Database configuration
+  server: {
+    port: process.env.PORT || 3000,
+    env
+  },
   database: {
     dialect: 'sqlite',
-    storage: process.env.DB_STORAGE || './database.sqlite',
-    logging: process.env.DB_LOGGING === 'true',
-    define: {
-      timestamps: true,
-      underscored: true,
-    },
+    storage: path.join(process.cwd(), 'database.sqlite'),
+    logging: env === 'development'
   },
-  
-  // JWT configuration
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  
-  // CORS configuration
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3001',
-  
-  // Logging configuration
-  logLevel: process.env.LOG_LEVEL || 'info',
-  
-  // Rate limiting
+  jwt: {
+    secret: process.env.JWT_SECRET || 'your-secret-key',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key',
+    resetSecret: process.env.JWT_RESET_SECRET || 'your-reset-secret-key',
+    accessExpiresIn: '15m',
+    refreshExpiresIn: '7d',
+    expiresIn: '24h'
+  },
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  },
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests per windowMs
+    loginWindowMs: 60 * 60 * 1000, // 1 hour
+    maxLoginAttempts: 5 // limit login attempts
   },
+  email: {
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+    from: process.env.EMAIL_FROM || 'noreply@kinabot.com'
+  },
+  // Logging configuration
+  logLevel: process.env.LOG_LEVEL || 'info',
   
   // Cache configuration
   cache: {

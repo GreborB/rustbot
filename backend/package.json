@@ -9,17 +9,23 @@
         "start": "node src/index.js",
         "dev": "nodemon src/index.js",
         "prod": "node src/index.js",
-        "test": "jest",
-        "lint": "eslint src/**/*.js"
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+        "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+        "lint": "eslint src/**/*.js",
+        "lint:fix": "eslint src/**/*.js --fix"
     },
     "dependencies": {
         "@liamcottle/rustplus.js": "^2.5.0",
+        "axios": "^1.6.2",
         "bcrypt": "^5.1.1",
-        "bcryptjs": "^2.4.3",
+        "bcryptjs": "^3.0.2",
+        "better-sqlite3": "^11.9.1",
         "compression": "^1.8.0",
         "cors": "^2.8.5",
         "dotenv": "^16.4.1",
         "express": "^4.18.2",
+        "express-rate-limit": "^7.1.0",
+        "express-validator": "^7.0.1",
         "helmet": "^7.1.0",
         "joi": "^17.13.3",
         "jsonwebtoken": "^9.0.2",
@@ -33,14 +39,20 @@
         "winston-daily-rotate-file": "^5.0.0"
     },
     "devDependencies": {
-        "eslint": "^8.56.0",
+        "@babel/plugin-transform-modules-commonjs": "^7.26.3",
+        "eslint": "^8.57.0",
         "jest": "^29.7.0",
-        "nodemon": "^3.0.3"
+        "nodemon": "^3.0.3",
+        "supertest": "^6.3.3"
     },
     "resolutions": {
-        "uuid": "^9.0.1",
+        "uuid": "^11.1.0",
+        "glob": "^10.3.10",
+        "inflight": "^2.0.0",
         "request": "^2.88.2",
-        "request-promise": "^4.2.6"
+        "request-promise": "^4.2.6",
+        "har-validator": "^5.1.5",
+        "glob-parent": "^6.0.2"
     },
     "engines": {
         "node": ">=18.0.0",

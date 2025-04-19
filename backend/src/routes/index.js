@@ -7,6 +7,10 @@ import {
     sceneController,
     automationController
 } from '../controllers/index.js';
+import userRoutes from './userRoutes.js';
+import deviceRoutes from './deviceRoutes.js';
+import sceneRoutes from './sceneRoutes.js';
+import automationRoutes from './automationRoutes.js';
 
 const router = express.Router();
 
@@ -43,5 +47,11 @@ router.get('/automations/:id', authenticate, automationController.getAutomation)
 router.put('/automations/:id', authenticate, validate('automationUpdate'), automationController.updateAutomation);
 router.delete('/automations/:id', authenticate, automationController.deleteAutomation);
 router.put('/automations/:id/toggle', authenticate, automationController.toggleAutomation);
+
+// API routes
+router.use('/api/users', userRoutes);
+router.use('/api/devices', deviceRoutes);
+router.use('/api/scenes', sceneRoutes);
+router.use('/api/automations', automationRoutes);
 
 export default router; 

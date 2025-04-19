@@ -19,8 +19,8 @@ const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
 });
 
 // Create the logger
-export const logger = winston.createLogger({
-    level: config.logLevel,
+const logger = winston.createLogger({
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     format: combine(
         timestamp(),
         logFormat
@@ -35,17 +35,10 @@ export const logger = winston.createLogger({
             ),
         }),
         // Rotating file transport for errors
-        new winston.transports.DailyRotateFile({
-            filename: 'logs/error-%DATE%.log',
-            datePattern: 'YYYY-MM-DD',
-            level: 'error',
-            maxFiles: '14d',
-        }),
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
         // Rotating file transport for all logs
-        new winston.transports.DailyRotateFile({
-            filename: 'logs/combined-%DATE%.log',
-            datePattern: 'YYYY-MM-DD',
-            maxFiles: '14d',
-        }),
+        new winston.transports.File({ filename: 'combined.log' })
     ],
-}); 
+});
+
+export { logger }; 
