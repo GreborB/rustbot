@@ -256,19 +256,17 @@ class AuthService {
 const authService = new AuthService();
 
 // Export the instance methods
-export const {
-    login,
-    register,
-    logout,
-    getCurrentUser,
-    requestPasswordReset,
-    resetPassword,
-    connectToServer,
-    disconnectFromServer,
-    getFCMCredentials,
-    handlePairingRequest,
-    getServerInfo
-} = authService;
+export const login = authService.login.bind(authService);
+export const register = authService.register.bind(authService);
+export const logout = authService.logout.bind(authService);
+export const getCurrentUser = authService.getCurrentUser.bind(authService);
+export const requestPasswordReset = authService.requestPasswordReset.bind(authService);
+export const resetPassword = authService.resetPassword.bind(authService);
+export const connectToServer = authService.connectToServer.bind(authService);
+export const disconnectFromServer = authService.disconnectFromServer.bind(authService);
+export const getFCMCredentials = authService.getFCMCredentials.bind(authService);
+export const handlePairingRequest = authService.handlePairingRequest.bind(authService);
+export const getServerInfo = authService.getServerInfo.bind(authService);
 
 // Export Steam-specific functions
 export const loginWithSteam = () => {
