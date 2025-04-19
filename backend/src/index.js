@@ -33,9 +33,34 @@ const startServer = async () => {
         await initDatabase();
         logger.info('Database initialized successfully');
         
-        // Start the server
-        app.listen(config.server.port, () => {
+        const server = app.listen(config.server.port, () => {
             logger.info(`Server running in ${config.server.env} mode on port ${config.server.port}`);
+        });
+
+        // Graceful shutdown
+        process.on('SIGINT', () => {
+            logger.info('Received SIGINT. Starting graceful shutdown...');
+            server.close(() => {
+                logger.info('Server closed. Exiting process...');
+                process.exit(0);
+            });
+        });
+
+        process.on('SIGTERM', () => {
+            logger.info('Received SIGTERM. Starting graceful shutdown...');
+            server.close(() => {
+                logger.info('Server closed. Exiting process...');
+                process.exit(0);
+            });
+        });
+
+        process.on('unhandledRejection', (error) => {
+            logger.error('Unhandled promise rejection:', error);
+        });
+
+        process.on('uncaughtException', (error) => {
+            logger.error('Uncaught exception:', error);
+            process.exit(1);
         });
     } catch (error) {
         logger.error('Failed to start server:', error);
@@ -63,15 +88,4 @@ app.use('/api/automations', automationRoutes);
 app.use('/api/rust', rustRoutes);
 
 // Error handling
-app.use(errorHandler);
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (error) => {
-    logger.error('Unhandled promise rejection:', error);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception:', error);
-    process.exit(1);
-}); 
+app.use(errorHandler); 
