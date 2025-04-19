@@ -1,53 +1,39 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getFCMCredentials, connectToServer, disconnectFromServer } from '../services/auth';
+import authService from '../services/auth';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [isConnected, setIsConnected] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const initConnection = async () => {
+        const checkAuth = async () => {
             try {
-                // Check if we have stored credentials
-                const serverId = localStorage.getItem('serverId');
-                const playerToken = localStorage.getItem('playerToken');
-
-                if (serverId && playerToken) {
-                    // Try to reconnect
-                    await connectToServer(serverId, playerToken);
-                    setIsConnected(true);
+                const token = localStorage.getItem('token');
+                if (token) {
+                    const user = await authService.getCurrentUser();
+                    if (user) {
+                        setIsAuthenticated(true);
+                    }
                 }
             } catch (err) {
-                console.error('Connection init error:', err);
-                disconnectFromServer();
+                console.error('Auth check error:', err);
             } finally {
                 setLoading(false);
             }
         };
 
-        initConnection();
+        checkAuth();
     }, []);
 
-    const connect = async (serverInfo) => {
+    const login = async (username, password) => {
         try {
             setLoading(true);
             setError(null);
-
-            // Get FCM credentials
-            await getFCMCredentials();
-
-            // Connect to server
-            const result = await connectToServer(serverInfo.serverId, serverInfo.playerToken);
-            
-            // Store credentials
-            localStorage.setItem('serverId', serverInfo.serverId);
-            localStorage.setItem('playerToken', serverInfo.playerToken);
-            
-            setIsConnected(true);
-            return result;
+            await authService.login(username, password);
+            setIsAuthenticated(true);
         } catch (err) {
             setError(err.message);
             throw err;
@@ -56,18 +42,33 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const disconnect = () => {
-        disconnectFromServer();
-        setIsConnected(false);
+    const register = async (username, password) => {
+        try {
+            setLoading(true);
+            setError(null);
+            await authService.register(username, password);
+            setIsAuthenticated(true);
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const logout = () => {
+        authService.logout();
+        setIsAuthenticated(false);
     };
 
     return (
         <AuthContext.Provider value={{ 
-            isConnected, 
+            isAuthenticated, 
             loading, 
-            error, 
-            connect, 
-            disconnect 
+            error,
+            login,
+            register,
+            logout
         }}>
             {children}
         </AuthContext.Provider>
