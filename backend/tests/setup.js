@@ -1,5 +1,5 @@
 import { sequelize } from '../src/config/database.js';
-import { User, Scene, SceneSchedule } from '../src/models/index.js';
+import { User, Scene, SceneSchedule, Device } from '../src/models/index.js';
 
 // Set environment to test
 process.env.NODE_ENV = 'test';
@@ -16,8 +16,17 @@ beforeAll(async () => {
       email: 'test@example.com'
     });
     
-    // Store test user ID for use in tests
+    // Create a test device
+    const testDevice = await Device.create({
+      name: 'Test Device',
+      type: 'test',
+      status: 'offline',
+      userId: testUser.id
+    });
+    
+    // Store test user ID and device ID for use in tests
     global.testUserId = testUser.id;
+    global.testDeviceId = testDevice.id;
   } catch (error) {
     console.error('Test setup error:', error);
     throw error;
@@ -29,6 +38,7 @@ afterAll(async () => {
   try {
     await SceneSchedule.destroy({ where: {} });
     await Scene.destroy({ where: {} });
+    await Device.destroy({ where: {} });
     await User.destroy({ where: {} });
     await sequelize.close();
   } catch (error) {

@@ -1,103 +1,83 @@
-# Kinabot
+# KinaBot Scene Management System
 
-A lightweight Rust server management bot with a modern web interface.
+A comprehensive scene management system for KinaBot that allows users to create, schedule, and execute scenes with multiple devices.
 
 ## Features
 
-- Real-time server monitoring
-- Storage box management
-- Smart switch control
-- Player tracking
-- Timer management
-- Vending machine search
+- Scene creation and management
+- Device action sequencing
+- Conditional execution
+- Flexible scheduling (one-time, daily, weekly, monthly)
+- Real-time execution
+- Error handling and logging
 
-## Prerequisites
+## API Endpoints
 
-- Node.js 16.x or later
-- Rust server with Rust+ enabled
-- Steam account with Rust
-- Server pairing code from Rust+
+### Scenes
 
-## Installation
+- `GET /api/scenes` - List all scenes for the current user
+- `GET /api/scenes/:id` - Get a specific scene
+- `POST /api/scenes` - Create a new scene
+- `PUT /api/scenes/:id` - Update a scene
+- `DELETE /api/scenes/:id` - Delete a scene
+- `POST /api/scenes/:id/execute` - Execute a scene
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/kinabot.git
-cd kinabot
-```
+### Scene Schedules
 
-2. Install dependencies:
-```bash
-# Install backend dependencies
-cd backend
-npm install
+- `POST /api/scenes/:id/schedules` - Create a new schedule for a scene
+- `PUT /api/scenes/:id/schedules/:scheduleId` - Update a schedule
+- `DELETE /api/scenes/:id/schedules/:scheduleId` - Delete a schedule
 
-# Install frontend dependencies
-cd ../frontend
-npm install
-```
+## Scene Structure
 
-3. Build the frontend:
-```bash
-cd frontend
-npm run build
-```
+A scene consists of:
 
-## Configuration
+- Basic information (name, description)
+- Actions (device commands to execute)
+- Conditions (optional rules for execution)
+- Schedules (optional timing rules)
 
-1. Start your Rust server and ensure Rust+ is enabled
-2. In-game, open the console and type `client.connect` to get your pairing code
-3. The bot will use this code to connect to your server via the Rust+ protocol
+## Scene Schedule Types
 
-## Running on VM
+- `none` - One-time execution
+- `daily` - Daily execution at specified time
+- `weekly` - Weekly execution on specified days
+- `monthly` - Monthly execution on specified days
 
-1. SSH into your VM
-2. Clone the repository and install dependencies as shown above
-3. Build the frontend
-4. Start the backend server:
-```bash
-cd backend
-npm start
-```
+## Getting Started
 
-5. Access the web interface at `http://your-vm-ip:3000`
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Using PM2 for Production
+2. Configure environment variables:
+   ```bash
+   cp .env.example .env
+   ```
 
-To keep the bot running in production:
+3. Start the server:
+   ```bash
+   npm start
+   ```
 
-1. Install PM2 globally:
-```bash
-npm install -g pm2
-```
+## Development
 
-2. Start the bot with PM2:
-```bash
-cd backend
-pm2 start npm --name "kinabot" -- start
-```
+- Run in development mode:
+  ```bash
+  npm run dev
+  ```
 
-3. To view logs:
-```bash
-pm2 logs kinabot
-```
+- Run tests:
+  ```bash
+  npm test
+  ```
 
-4. To restart the bot:
-```bash
-pm2 restart kinabot
-```
-
-## Security Notes
-
-- Keep your pairing code secure
-- Use a reverse proxy (like Nginx) if exposing to the internet
-- Regularly update dependencies
-- Monitor server logs for suspicious activity
+- Lint code:
+  ```bash
+  npm run lint
+  ```
 
 ## License
 
-MIT
-
-## Contributing
-
-Feel free to submit issues and pull requests. 
+MIT 

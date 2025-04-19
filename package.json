@@ -31,13 +31,15 @@
         "npm": ">=8.0.0"
     },
     "devDependencies": {
+        "@babel/core": "^7.26.10",
+        "@babel/preset-env": "^7.26.9",
+        "babel-jest": "^29.7.0",
         "concurrently": "^8.2.2",
         "rimraf": "^5.0.5"
     },
     "dependencies": {
         "react-toastify": "^11.0.5",
         "sequelize": "^6.37.1",
-        "sqlite3": "^5.1.7",
         "uuid": "^11.1.0"
     },
     "resolutions": {

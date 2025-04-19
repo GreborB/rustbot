@@ -16,8 +16,9 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: 3001,
-        DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/kinabot',
+        DATABASE_URL: 'sqlite://./database.sqlite',
         JWT_SECRET: 'your-secret-key',
+        CORS_ORIGIN: 'http://localhost:3000',
       },
     },
   ],

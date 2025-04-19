@@ -37,7 +37,8 @@ describe('SceneScheduler', () => {
       userId: testUser.id,
       actions: [{
         deviceId: testDevice.id,
-        command: 'test',
+        command: 'test-command',
+        value: 'test-value'
       }],
     });
 
