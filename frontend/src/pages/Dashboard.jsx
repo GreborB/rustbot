@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Card, CardContent, Typography, Grid, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, CircularProgress, Paper } from '@mui/material';
-import { PersonIcon, EventIcon, StorageIcon, TimerIcon } from '@mui/icons-material';
+import { Person, Event, Storage, Timer } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import './Dashboard.css';
 
@@ -132,7 +132,7 @@ function Dashboard() {
                                     <ListItem key={player.id}>
                                         <ListItemAvatar>
                                             <Avatar>
-                                                <PersonIcon />
+                                                <Person />
                                             </Avatar>
                                         </ListItemAvatar>
                                         <ListItemText
@@ -162,7 +162,7 @@ function Dashboard() {
                                         <ListItem>
                                             <ListItemAvatar>
                                                 <Avatar>
-                                                    <EventIcon />
+                                                    <Event />
                                                 </Avatar>
                                             </ListItemAvatar>
                                             <ListItemText
