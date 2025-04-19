@@ -1,5 +1,5 @@
 import { toast } from 'react-toastify';
-import socketService from '../services/socket';
+import socketService from '../services/socket.js';
 
 export const SOCKET_EVENTS = {
   CONNECT: 'connect',

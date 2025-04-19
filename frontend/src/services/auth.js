@@ -278,4 +278,7 @@ export const pairWithServer = async (serverInfo) => {
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Failed to pair with server');
     }
-}; 
+};
+
+// Export the instance and functions
+export const { getAccessToken, login, logout, isAuthenticated } = authService; 

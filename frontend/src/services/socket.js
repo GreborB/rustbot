@@ -1,8 +1,6 @@
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
-import authService from './auth';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { getAccessToken } from './auth.js';
 
 class SocketService {
     constructor() {
@@ -11,59 +9,47 @@ class SocketService {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000; // 1 second
-        this.isConnecting = false;
+        this.eventListeners = new Map();
     }
 
     connect() {
-        if (this.socket || this.isConnecting) {
-            return;
-        }
-
-        this.isConnecting = true;
-        const token = authService.getAccessToken();
+        const token = getAccessToken();
         if (!token) {
-            this.isConnecting = false;
-            toast.error('Not authenticated. Please login.');
+            toast.error('Authentication required for socket connection');
             return;
         }
 
-        try {
-            this.socket = io(API_URL, {
-                auth: {
-                    token: `Bearer ${token}`
-                },
-                autoConnect: true,
-                reconnection: true,
-                reconnectionAttempts: this.maxReconnectAttempts,
-                reconnectionDelay: this.reconnectDelay,
-                withCredentials: true
-            });
+        this.socket = io(import.meta.env.VITE_API_URL, {
+            auth: {
+                token: `Bearer ${token}`
+            },
+            reconnection: true,
+            reconnectionAttempts: this.maxReconnectAttempts,
+            reconnectionDelay: this.reconnectDelay,
+            timeout: 10000
+        });
 
-            this.setupEventListeners();
-        } catch (error) {
-            this.isConnecting = false;
-            toast.error(`Connection error: ${error.message}`);
-        }
+        this.setupEventListeners();
     }
 
     setupEventListeners() {
+        if (!this.socket) return;
+
         this.socket.on('connect', () => {
             this.isConnected = true;
-            this.isConnecting = false;
             this.reconnectAttempts = 0;
             toast.success('Connected to server');
         });
 
-        this.socket.on('disconnect', () => {
+        this.socket.on('disconnect', (reason) => {
             this.isConnected = false;
-            this.isConnecting = false;
-            toast.warning('Disconnected from server');
+            toast.warning(`Disconnected from server: ${reason}`);
         });
 
         this.socket.on('connect_error', (error) => {
             this.reconnectAttempts++;
             if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-                toast.error('Failed to connect to server. Please refresh the page.');
+                toast.error('Failed to connect to server after multiple attempts');
             } else {
                 toast.warning(`Connection error: ${error.message}`);
             }
@@ -71,6 +57,13 @@ class SocketService {
 
         this.socket.on('error', (error) => {
             toast.error(`Socket error: ${error.message}`);
+        });
+
+        // Re-emit all stored event listeners
+        this.eventListeners.forEach((handlers, event) => {
+            handlers.forEach(handler => {
+                this.socket.on(event, handler);
+            });
         });
     }
 
@@ -84,26 +77,42 @@ class SocketService {
 
     emit(event, data) {
         if (!this.socket || !this.isConnected) {
-            throw new Error('Socket not connected');
+            toast.error('Socket not connected');
+            return;
         }
-        return this.socket.emit(event, data);
+
+        try {
+            this.socket.emit(event, data);
+        } catch (error) {
+            toast.error(`Failed to emit event: ${error.message}`);
+        }
     }
 
-    on(event, callback) {
+    on(event, handler) {
         if (!this.socket) {
-            throw new Error('Socket not initialized');
+            // Store the handler for when the socket connects
+            if (!this.eventListeners.has(event)) {
+                this.eventListeners.set(event, new Set());
+            }
+            this.eventListeners.get(event).add(handler);
+            return;
         }
-        this.socket.on(event, callback);
+
+        this.socket.on(event, handler);
     }
 
-    off(event, callback) {
+    off(event, handler) {
         if (!this.socket) {
-            throw new Error('Socket not initialized');
+            // Remove the stored handler
+            if (this.eventListeners.has(event)) {
+                this.eventListeners.get(event).delete(handler);
+            }
+            return;
         }
-        this.socket.off(event, callback);
+
+        this.socket.off(event, handler);
     }
 }
 
-// Create and export a single instance
-const socketService = new SocketService();
-export default socketService; 
+// Export a single instance
+export const socketService = new SocketService(); 
