@@ -1,4 +1,4 @@
-import { Device } from '../models/index.js';
+import { Device } from '../models/Index.js';
 import { logger } from '../utils/logger.js';
 
 class DeviceService {
