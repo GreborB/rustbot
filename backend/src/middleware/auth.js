@@ -1,7 +1,7 @@
 import { verifyToken } from '../utils/security.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { User } from '../models/index.js';
+import { User } from '../models/Index.js';
 
 export const authenticate = async (req, res, next) => {
     try {

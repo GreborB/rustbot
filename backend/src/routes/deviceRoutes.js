@@ -1,5 +1,5 @@
 import express from 'express';
-import { Device } from '../models/index.js';
+import { Device } from '../models/Index.js';
 import { authenticate } from '../middleware/auth.js';
 import { validateDevice } from '../middleware/validation.js';
 import { logger } from '../utils/logger.js';

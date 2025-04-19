@@ -1,5 +1,5 @@
 import express from 'express';
-import { Automation } from '../models/index.js';
+import { Automation } from '../models/Index.js';
 import { authenticate } from '../middleware/auth.js';
 import { validateAutomation } from '../middleware/validation.js';
 import { logger } from '../utils/logger.js';
