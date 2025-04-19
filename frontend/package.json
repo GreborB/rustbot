@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "preview": "vite preview",
+        "preview": "vite preview --port 3000 --host",
         "start": "vite",
         "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
         "typecheck": "tsc --noEmit",
