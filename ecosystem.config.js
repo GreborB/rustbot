@@ -4,10 +4,10 @@ module.exports = {
       name: 'frontend',
       cwd: './frontend',
       script: 'node_modules/.bin/vite',
+      args: 'preview --port 3000 --host',
       env: {
         NODE_ENV: 'development',
-        PORT: 3000
-      }
+      },
     },
     {
       name: 'backend',
@@ -16,11 +16,9 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: 3001,
-        DB_PATH: './database.sqlite',
-        DB_LOGGING: false,
-        JWT_SECRET: 'your-secure-auth-secret',
-        JWT_EXPIRES_IN: '24h'
-      }
-    }
-  ]
+        DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/kinabot',
+        JWT_SECRET: 'your-secret-key',
+      },
+    },
+  ],
 }; 
