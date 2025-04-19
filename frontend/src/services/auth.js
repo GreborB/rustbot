@@ -193,7 +193,7 @@ class AuthService {
 
     async connectToServer(serverInfo) {
         try {
-            const token = localStorage.getItem('token');
+            const token = this.getAccessToken();
             const response = await axios.post(`${API_URL}/connect`, serverInfo, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -205,10 +205,11 @@ class AuthService {
 
     async disconnectFromServer() {
         try {
-            const token = localStorage.getItem('token');
+            const token = this.getAccessToken();
             await axios.post(`${API_URL}/disconnect`, null, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            return true;
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Failed to disconnect from server');
         }
@@ -216,78 +217,83 @@ class AuthService {
 
     async getFCMCredentials() {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/auth/fcm-credentials`, {
+            const token = this.getAccessToken();
+            const response = await axios.get(`${API_URL}/fcm/credentials`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
         } catch (error) {
-            console.error('FCM credentials error:', error);
-            throw error;
+            throw new Error(error.response?.data?.message || 'Failed to get FCM credentials');
         }
     }
 
     async handlePairingRequest(pairingData) {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post(`${API_URL}/auth/pair`, pairingData, {
+            const token = this.getAccessToken();
+            const response = await axios.post(`${API_URL}/pairing/handle`, pairingData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
         } catch (error) {
-            console.error('Pairing error:', error);
-            throw error;
+            throw new Error(error.response?.data?.message || 'Failed to handle pairing request');
         }
     }
 
     async getServerInfo() {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`${API_URL}/server-info`, {
+            const token = this.getAccessToken();
+            const response = await axios.get(`${API_URL}/server/info`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
         } catch (error) {
-            console.error('Server info error:', error);
-            throw error;
+            throw new Error(error.response?.data?.message || 'Failed to get server info');
         }
     }
 }
 
+// Create an instance of the service
 const authService = new AuthService();
-authService.setupAxiosInterceptors();
 
-export default authService;
+// Export the instance methods
+export const {
+    login,
+    register,
+    logout,
+    getCurrentUser,
+    requestPasswordReset,
+    resetPassword,
+    connectToServer,
+    disconnectFromServer,
+    getFCMCredentials,
+    handlePairingRequest,
+    getServerInfo
+} = authService;
 
-// Helper functions
+// Export Steam-specific functions
 export const loginWithSteam = () => {
-    const token = localStorage.getItem('token');
-    window.location.href = `${API_URL}/auth/steam${token ? `?token=${token}` : ''}`;
+    window.location.href = `${API_URL}/auth/steam`;
 };
 
 export const handleAuthCallback = async (token) => {
     try {
-        localStorage.setItem('token', token);
-        const response = await axios.get(`${API_URL}/auth/profile`, {
-            headers: { Authorization: `Bearer ${token}` }
+        const response = await axios.get(`${API_URL}/auth/steam/callback`, {
+            params: { token }
         });
         return response.data;
     } catch (error) {
-        localStorage.removeItem('token');
-        console.error('Auth callback error:', error);
-        throw error;
+        throw new Error(error.response?.data?.message || 'Failed to handle Steam auth callback');
     }
 };
 
 export const pairWithServer = async (serverInfo) => {
     try {
-        const token = localStorage.getItem('token');
-        const response = await axios.post(`${API_URL}/auth/pair`, serverInfo, {
+        const token = authService.getAccessToken();
+        const response = await axios.post(`${API_URL}/rust/pair`, serverInfo, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
     } catch (error) {
-        console.error('Server pairing error:', error);
-        throw error;
+        throw new Error(error.response?.data?.message || 'Failed to pair with server');
     }
 }; 
