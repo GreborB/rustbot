@@ -1,9 +1,9 @@
-import User from './User.js';
-import Device from './Device.js';
-import Scene from './Scene.js';
-import Automation from './Automation.js';
+import UserModel from './User.js';
+import DeviceModel from './Device.js';
+import SceneModel from './Scene.js';
+import AutomationModel from './Automation.js';
 
-export const User = User;
-export const Device = Device;
-export const Scene = Scene;
-export const Automation = Automation; 
+export const User = UserModel;
+export const Device = DeviceModel;
+export const Scene = SceneModel;
+export const Automation = AutomationModel; 
