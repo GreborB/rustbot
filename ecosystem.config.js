@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'kinabot-frontend',
+      name: 'frontend',
       cwd: './frontend',
       script: 'node_modules/.bin/vite',
       env: {
@@ -10,7 +10,7 @@ module.exports = {
       }
     },
     {
-      name: 'kinabot-backend',
+      name: 'backend',
       cwd: './backend',
       script: 'src/index.js',
       env: {
