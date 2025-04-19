@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Card, CardContent, Typography, Grid, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, CircularProgress, Paper } from '@mui/material';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Box, Card, CardContent, Typography, Grid, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, CircularProgress, Paper, Container } from '@mui/material';
 import { Person, Event, Storage, Timer } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import './Dashboard.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import socketService from '../services/socket';
 import { withRetry, handleApiError, safeLocalStorage } from '../utils/apiUtils';
@@ -17,6 +17,9 @@ import {
 } from '../utils/socketUtils';
 import DashboardLayout from '../components/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Sidebar from '../components/Sidebar';
+import Header from '../components/Header';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
     const [serverInfo, setServerInfo] = useState(null);
@@ -30,11 +33,17 @@ const Dashboard = () => {
     const [retryCount, setRetryCount] = useState(0);
     const [isInitialized, setIsInitialized] = useState(false);
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const mountedRef = useRef(true);
+    const retryTimeoutRef = useRef(null);
 
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
+    const SOCKET_CONNECTION_TIMEOUT = 10000;
 
     const handleError = useCallback((error) => {
+        if (!mountedRef.current) return;
+        
         console.error('Dashboard error:', error);
         setError(error.message || 'An unexpected error occurred');
         setLoading(false);
@@ -42,46 +51,64 @@ const Dashboard = () => {
         if (error.message.includes('authentication')) {
             navigate('/login');
         } else if (retryCount < MAX_RETRIES) {
-            setTimeout(() => {
-                setRetryCount(prev => prev + 1);
-                setLoading(true);
-                setError(null);
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+            retryTimeoutRef.current = setTimeout(() => {
+                if (mountedRef.current) {
+                    setRetryCount(prev => prev + 1);
+                    setLoading(true);
+                    setError(null);
+                }
             }, RETRY_DELAY);
         }
     }, [navigate, retryCount]);
 
     const initializeSocket = useCallback(async () => {
-        if (isInitialized) return;
+        if (isInitialized || !mountedRef.current) return;
 
         try {
+            const token = safeLocalStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            const connectionPromise = waitForSocketConnection(SOCKET_CONNECTION_TIMEOUT);
+            socketService.connect();
+
             await withRetry(
                 async () => {
-                    const token = safeLocalStorage.getItem('token');
-                    if (!token) {
-                        throw new Error('No authentication token found');
-                    }
-                    await waitForSocketConnection();
-                    socketService.connect();
+                    await connectionPromise;
                 },
                 {
                     maxRetries: MAX_RETRIES,
                     retryDelay: RETRY_DELAY,
                     shouldRetry: (error) => !error.message.includes('authentication'),
                     onError: (error) => {
-                        setRetryCount(prev => prev + 1);
-                        toast.warning(`Connection attempt ${retryCount + 1} failed. Retrying...`);
+                        if (mountedRef.current) {
+                            setRetryCount(prev => prev + 1);
+                            toast.warning(`Connection attempt ${retryCount + 1} failed. Retrying...`);
+                        }
                     }
                 }
             );
-            setIsInitialized(true);
+
+            if (mountedRef.current) {
+                setIsInitialized(true);
+            }
         } catch (error) {
-            handleError(error);
+            if (mountedRef.current) {
+                handleError(error);
+            }
         }
     }, [isInitialized, handleError]);
 
     const setupEventHandlers = useCallback(() => {
+        if (!mountedRef.current) return null;
+
         const handlers = {
             [SOCKET_EVENTS.SERVER_INFO]: (data) => {
+                if (!mountedRef.current) return;
                 try {
                     setServerInfo(data);
                 } catch (error) {
@@ -89,6 +116,7 @@ const Dashboard = () => {
                 }
             },
             [SOCKET_EVENTS.PLAYER_COUNT]: (data) => {
+                if (!mountedRef.current) return;
                 try {
                     setPlayerCount(data.count);
                 } catch (error) {
@@ -96,6 +124,7 @@ const Dashboard = () => {
                 }
             },
             [SOCKET_EVENTS.ONLINE_PLAYERS]: (data) => {
+                if (!mountedRef.current) return;
                 try {
                     setOnlinePlayers(data.players);
                 } catch (error) {
@@ -103,6 +132,7 @@ const Dashboard = () => {
                 }
             },
             [SOCKET_EVENTS.RECENT_EVENTS]: (data) => {
+                if (!mountedRef.current) return;
                 try {
                     setRecentEvents(data.events);
                 } catch (error) {
@@ -110,6 +140,7 @@ const Dashboard = () => {
                 }
             },
             [SOCKET_EVENTS.COMMAND_STATS]: (data) => {
+                if (!mountedRef.current) return;
                 try {
                     setCommandStats(data.stats);
                 } catch (error) {
@@ -118,6 +149,7 @@ const Dashboard = () => {
             },
             [SOCKET_EVENTS.ERROR]: handleError,
             [SOCKET_EVENTS.DISCONNECT]: () => {
+                if (!mountedRef.current) return;
                 toast.warning('Disconnected from server. Attempting to reconnect...');
                 setLoading(true);
                 setIsInitialized(false);
@@ -128,6 +160,8 @@ const Dashboard = () => {
     }, [handleError]);
 
     const fetchInitialData = useCallback(async () => {
+        if (!mountedRef.current) return;
+
         try {
             await Promise.all([
                 emitWithRetry(SOCKET_EVENTS.SERVER_INFO),
@@ -136,14 +170,18 @@ const Dashboard = () => {
                 emitWithRetry(SOCKET_EVENTS.RECENT_EVENTS),
                 emitWithRetry(SOCKET_EVENTS.COMMAND_STATS)
             ]);
-            setLoading(false);
+            if (mountedRef.current) {
+                setLoading(false);
+            }
         } catch (error) {
-            handleError(error);
+            if (mountedRef.current) {
+                handleError(error);
+            }
         }
     }, [handleError]);
 
     useEffect(() => {
-        let mounted = true;
+        mountedRef.current = true;
         let cleanup;
 
         const setupDashboard = async () => {
@@ -151,12 +189,12 @@ const Dashboard = () => {
                 setLoading(true);
                 await initializeSocket();
                 
-                if (mounted) {
+                if (mountedRef.current) {
                     cleanup = setupEventHandlers();
                     await fetchInitialData();
                 }
             } catch (error) {
-                if (mounted) {
+                if (mountedRef.current) {
                     handleError(error);
                 }
             }
@@ -165,9 +203,12 @@ const Dashboard = () => {
         setupDashboard();
 
         return () => {
-            mounted = false;
+            mountedRef.current = false;
             if (cleanup) {
                 cleanup();
+            }
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
             }
             socketService.disconnect();
         };
@@ -204,124 +245,15 @@ const Dashboard = () => {
     }
 
     return (
-        <DashboardLayout>
-            <Box sx={{ flexGrow: 1, p: 3 }}>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={6} lg={3}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Player Count
-                                </Typography>
-                                <Typography variant="h4">
-                                    {playerCount}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6} lg={3}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Server Status
-                                </Typography>
-                                <Typography variant="h4" color={isConnected ? 'success.main' : 'error.main'}>
-                                    {isConnected ? 'Online' : 'Offline'}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6} lg={3}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Server Uptime
-                                </Typography>
-                                <Typography variant="h4">
-                                    {serverInfo?.uptime || 'N/A'}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6} lg={3}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Recent Events
-                                </Typography>
-                                <Typography variant="h4">
-                                    {recentEvents.length}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2 }}>
-                            <Typography variant="h6" gutterBottom>
-                                Online Players
-                            </Typography>
-                            <List>
-                                {onlinePlayers.length > 0 ? (
-                                    onlinePlayers.map((player) => (
-                                        <ListItem key={player.id}>
-                                            <ListItemAvatar>
-                                                <Avatar>
-                                                    <Person />
-                                                </Avatar>
-                                            </ListItemAvatar>
-                                            <ListItemText
-                                                primary={player.name}
-                                                secondary={`ID: ${player.id}`}
-                                            />
-                                        </ListItem>
-                                    ))
-                                ) : (
-                                    <ListItem>
-                                        <ListItemText primary="No players online" />
-                                    </ListItem>
-                                )}
-                            </List>
-                        </Paper>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2 }}>
-                            <Typography variant="h6" gutterBottom>
-                                Recent Events
-                            </Typography>
-                            <List>
-                                {recentEvents.length > 0 ? (
-                                    recentEvents.map((event, index) => (
-                                        <React.Fragment key={index}>
-                                            <ListItem>
-                                                <ListItemAvatar>
-                                                    <Avatar>
-                                                        <Event />
-                                                    </Avatar>
-                                                </ListItemAvatar>
-                                                <ListItemText
-                                                    primary={event.type}
-                                                    secondary={event.message}
-                                                />
-                                            </ListItem>
-                                            {index < recentEvents.length - 1 && <Divider />}
-                                        </React.Fragment>
-                                    ))
-                                ) : (
-                                    <ListItem>
-                                        <ListItemText primary="No recent events" />
-                                    </ListItem>
-                                )}
-                            </List>
-                        </Paper>
-                    </Grid>
-                </Grid>
+        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <Sidebar />
+            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <Header user={user} socketStatus={isConnected} />
+                <Container maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
+                    <Outlet />
+                </Container>
             </Box>
-        </DashboardLayout>
+        </Box>
     );
 };
 
