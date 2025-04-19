@@ -1,7 +1,7 @@
 import { WebSocketServer } from 'ws';
 import { verifyToken } from '../utils/security.js';
 import { logger } from '../utils/logger.js';
-import { Device, Scene } from '../models/Index.js';
+import { Device, Scene } from '../models/index.js';
 
 class WebSocketManager {
   constructor() {

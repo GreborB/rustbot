@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import SceneScheduler from '../../src/services/sceneScheduler.js';
-import { Scene, SceneSchedule, User, Device } from '../../src/models/Index.js';
+import { Scene, SceneSchedule, User, Device } from '../../src/models/index.js';
 import { sequelize } from '../../src/config/database.js';
 
 // Mock sceneService

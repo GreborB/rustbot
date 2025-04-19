@@ -1,0 +1,3 @@
+import { Scene, SceneSchedule } from '../../src/models/index.js';
+
+// ... existing code ... 

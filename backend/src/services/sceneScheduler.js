@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Scene, SceneSchedule } from '../models/Index.js';
+import { Scene, SceneSchedule } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 import { sceneService } from './sceneService.js';
 

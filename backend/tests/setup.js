@@ -1,5 +1,5 @@
 import { sequelize } from '../src/config/database.js';
-import { User, Scene, SceneSchedule, Device } from '../src/models/Index.js';
+import { User, Scene, SceneSchedule, Device } from '../src/models/index.js';
 
 // Set environment to test
 process.env.NODE_ENV = 'test';

@@ -2,7 +2,7 @@ import express from 'express';
 import { loginLimiter, apiLimiter } from '../middleware/rateLimit.js';
 import { validate, schemas } from '../middleware/validator.js';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { User } from '../models/Index.js';
+import { User } from '../models/index.js';
 import { generateTokens } from '../utils/security.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';

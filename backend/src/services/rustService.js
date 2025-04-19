@@ -1,7 +1,7 @@
 import { RustPlus } from '@liamcottle/rustplus.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/config.js';
-import { User } from '../models/Index.js';
+import { User } from '../models/index.js';
 
 class RustService {
     constructor() {

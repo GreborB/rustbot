@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Scene, Device } from '../models/Index.js';
+import { Scene, Device } from '../models/index.js';
 import { AppError } from '../utils/errorHandlers.js';
 import logger from '../utils/logger.js';
 import { socketManager } from '../socketHandlers.js';
